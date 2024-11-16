@@ -1,21 +1,21 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
+import { register as registerUser } from '../../redux/slices/authSlice';
 import { toast } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../../styles/boostrapCustom.css';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons';
-import logo from '../../assets/logo.jpeg';
+import logo from '../../assets/logo.jpeg'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
 
 function Registration() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const dispatch = useDispatch();
-  const { error } = useSelector((state) => state.auth);
+  const { isAuthenticated, error } = useSelector((state) => state.auth);
 
   const onSubmit = (data) => {
-    console.log(data);
-    // Dispatch registration action here if backend exists
+    dispatch(registerUser(data));
   };
 
   const showToastError = (message) => {
@@ -23,16 +23,16 @@ function Registration() {
   };
 
   return (
-    <div className=" bg-custom">
+    <div className="bg-custom">
       <div className="container pb-5 pt-3">
-        <div className=" logo-container mb-4">
-          <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
-        </div>
+      <div className=" logo-container2 mb-4">
+         <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
+      </div>
         <div className="row justify-content-center">
           <div className="col-md-6">
-            <h2 className="text-center font-weight-bold mb-2">Register with Arpella</h2>
+            <h2 className="text-center font-weight-bold mb-2">Create Your Account</h2>
             <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="text-start form-group mb-3">
+              <div className="form-group mb-3 text-start">
                 <label>First Name:</label>
                 <input
                   type="text"
@@ -42,7 +42,8 @@ function Registration() {
                 />
                 {errors.firstName && showToastError(errors.firstName.message)}
               </div>
-              <div className="text-start form-group mb-3">
+              
+              <div className="form-group mb-3 text-start">
                 <label>Last Name:</label>
                 <input
                   type="text"
@@ -52,7 +53,8 @@ function Registration() {
                 />
                 {errors.lastName && showToastError(errors.lastName.message)}
               </div>
-              <div className="text-start form-group mb-3">
+
+              <div className="form-group mb-3 text-start">
                 <label>Email:</label>
                 <input
                   type="email"
@@ -62,7 +64,8 @@ function Registration() {
                 />
                 {errors.email && showToastError(errors.email.message)}
               </div>
-              <div className="text-start form-group mb-3">
+
+              <div className="form-group mb-3 text-start">
                 <label>Password:</label>
                 <input
                   type="password"
@@ -72,7 +75,8 @@ function Registration() {
                 />
                 {errors.password && showToastError(errors.password.message)}
               </div>
-              <div className="text-start form-group mb-3">
+
+              <div className="form-group mb-3 text-start">
                 <label>Phone Number:</label>
                 <input
                   type="text"
@@ -85,18 +89,20 @@ function Registration() {
 
               <button type="submit" className="btn btn-primary w-100 mb-3">Register</button>
 
-              <div className="d-flex justify-content-between mb-3">
-                <a href="/login">Already have an account? Login here</a>
-              </div>
-
               <div className="d-grid gap-3">
-                <button type="button" className="btn btn-outline-danger">
-                  <FontAwesomeIcon icon={faGoogle} /> Register with Google
-                </button>
-                <button type="button" className="btn btn-outline-primary">
-                  <FontAwesomeIcon icon={faFacebook} /> Register with Facebook
-                </button>
-              </div>
+              <button type="button" className="btn btn-outline-danger">
+              <FontAwesomeIcon icon={faGoogle} /> Login with Google
+              </button>
+              <button type="button" className="btn btn-outline-primary">
+              <FontAwesomeIcon icon={faFacebook} /> Login with Facebook
+              </button>
+            </div>
+
+              {isAuthenticated && (
+                <div className="alert alert-success mt-3">
+                  Registration successful! Redirecting...
+                </div>
+              )}
 
               {error && showToastError(error)}
             </form>

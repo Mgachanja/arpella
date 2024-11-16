@@ -22,6 +22,12 @@
     object-fit:cover !important;
     margin-left: 30vw !important;
 }
+.logo-container2{
+    width: 20vw !important;
+    height: 20vw !important;
+    object-fit:cover !important;
+    margin-left: 34vw !important;
+}
 
 .logo-container img{
     width: 100% !important;
