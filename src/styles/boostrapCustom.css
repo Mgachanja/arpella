@@ -1,0 +1,29 @@
+.bg-custom{
+    background-color: #FCFAF7 !important;
+    padding-bottom: 100px;
+}
+
+.primary-text-custom{
+    color: 96734F !important;
+}
+
+.form-control{
+    background-color: rgb(255, 216, 194) !important;
+}
+
+.btn-primary{
+    background-color: rgb(200, 93, 0) !important;
+    border-color: rgb(210, 95, 0) !important;
+}
+
+.logo-container{
+    width: 20vw !important;
+    height: 20vw !important;
+    object-fit:cover !important;
+    margin-left: 30vw !important;
+}
+
+.logo-container img{
+    width: 100% !important;
+    height: 100% !important;
+}
