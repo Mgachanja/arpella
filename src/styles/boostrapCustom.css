@@ -1,6 +1,6 @@
 .bg-custom{
     background-color: #FCFAF7 !important;
-    padding-bottom: 100px;
+    height: 100% !important;
 }
 
 .primary-text-custom{
@@ -16,13 +16,15 @@
     border-color: rgb(210, 95, 0) !important;
 }
 
-.logo-container{
+.logo-container{    
+    position: relative !important;
+    left: 50% !important;   
+    transform: translateX(-50%) !important;
     width: 20vw !important;
-    min-width: 50px !important;
-    min-height: 50px !important;
+    min-width: 200px !important;
+    min-height: 200px !important;
     height: 20vw !important;
     object-fit:cover !important;
-    margin-left: 30vw !important;
 }
 .logo-container2{
     width: 20vw !important;

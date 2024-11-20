@@ -22,16 +22,13 @@ function Index() {
     toast.error(message);
   };
 
-  const showToastSuccess = (message) => {
-    toast.success(message);
-  };
 
   return (
     <div className=" bg-custom">
     <div className="container pb-5 pt-3">
-    <div className=" logo-container mb-4">
-      <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
-    </div>
+      <div className=" logo-container mb-4">
+        <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
+      </div>
       <div className="row justify-content-center">
         <div className="col-md-6">
           <h2 className="text-center font-weight-bold mb-2">Welcome back to Arpella</h2>

@@ -25,12 +25,13 @@ function Registration() {
   return (
     <div className="bg-custom">
       <div className="container pb-5 pt-3">
-      <div className=" logo-container2 mb-4">
-         <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
-      </div>
+       <h2 className="text-center font-weight-bold mb-2">Welcome to Arpella</h2>
+          <div className=" logo-container mb-4">
+            <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
+        </div>
         <div className="row justify-content-center p-5">
           <div className="col-md-6">
-            <h2 className="text-center font-weight-bold mb-2">Create Your Account</h2>
+            <h2 className="text-center mb-1">Create Your Account</h2>
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="form-group mb-3 text-start">
                 <label>First Name:</label>
@@ -88,9 +89,9 @@ function Registration() {
               </div>
 
               <button type="submit" className="btn btn-primary w-100 mb-3">Register</button>
-
+              <span className=' font-weight-bold mb-3'> or </span>
               <div className="d-grid gap-3">
-              <button type="button" className="btn btn-outline-danger">
+              <button type="button" className=" mt-3 btn btn-outline-danger">
               <FontAwesomeIcon icon={faGoogle} /> Login with Google
               </button>
               <button type="button" className="btn btn-outline-primary">
