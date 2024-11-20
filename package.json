@@ -11,9 +11,6 @@
     "@mui/material": "^6.1.7",
     "@reduxjs/toolkit": "^2.3.0",
     "@stripe/react-stripe-js": "^2.9.0",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
     "axios": "^1.7.7",
     "bootstrap": "^5.3.3",
     "dotenv": "^16.4.5",
@@ -27,14 +24,12 @@
     "react-scripts": "5.0.1",
     "react-toastify": "^10.0.6",
     "react-tooltip": "^5.28.0",
-    "uuid": "^11.0.3",
-    "web-vitals": "^2.1.4"
+    "uuid": "^11.0.3"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "webpack",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "webpack serve --mode development",
+    "clean": "rimraf dist",
+    "build": " webpack --mode production"
   },
   "eslintConfig": {
     "extends": [
@@ -53,5 +48,20 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-react": "^7.25.9",
+    "babel-loader": "^9.2.1",
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.3",
+    "rimraf": "^6.0.1",
+    "sass": "^1.81.0",
+    "sass-loader": "^16.0.3",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0"
   }
 }
