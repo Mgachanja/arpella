@@ -18,6 +18,8 @@
 
 .logo-container{
     width: 20vw !important;
+    min-width: 50px !important;
+    min-height: 50px !important;
     height: 20vw !important;
     object-fit:cover !important;
     margin-left: 30vw !important;

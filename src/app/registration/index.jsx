@@ -28,7 +28,7 @@ function Registration() {
       <div className=" logo-container2 mb-4">
          <img src={logo} alt="Arpella logo" className="img-fluid rounded" />
       </div>
-        <div className="row justify-content-center">
+        <div className="row justify-content-center p-5">
           <div className="col-md-6">
             <h2 className="text-center font-weight-bold mb-2">Create Your Account</h2>
             <form onSubmit={handleSubmit(onSubmit)}>

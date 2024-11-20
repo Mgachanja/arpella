@@ -8,6 +8,7 @@
     "@fortawesome/free-regular-svg-icons": "^6.6.0",
     "@fortawesome/free-solid-svg-icons": "^6.6.0",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@jridgewell/set-array": "^1.2.1",
     "@mui/material": "^6.1.7",
     "@reduxjs/toolkit": "^2.3.0",
     "@stripe/react-stripe-js": "^2.9.0",
@@ -24,12 +25,12 @@
     "react-scripts": "5.0.1",
     "react-toastify": "^10.0.6",
     "react-tooltip": "^5.28.0",
+    "svgo": "^2.8.0",
     "uuid": "^11.0.3"
   },
   "scripts": {
     "start": "webpack serve --mode development",
-    "clean": "rimraf dist",
-    "build": " webpack --mode production"
+    "build": "webpack --mode production"
   },
   "eslintConfig": {
     "extends": [
