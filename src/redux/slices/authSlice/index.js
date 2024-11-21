@@ -1,9 +1,24 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { toast } from 'react-toastify'
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const showToastError = (message) => {
   toast.error(message);
 };
+
 
 const showToastSuccess = (message) => {
   toast.success(message);
@@ -13,7 +28,7 @@ const authSlice = createSlice({
   name: 'auth',
   initialState: {
     isAuthenticated: false,
-    isLoadind: false,
+    isLoading: false,
     user: null,
     error: null,
   },
@@ -26,6 +41,7 @@ const authSlice = createSlice({
         state.user = { email };
         state.error = null;
         showToastSuccess('Login successful')
+        showToastSuccess(`Welcome ${email}`);
       } else {
         state.error =showToastError('Invalid credentials');
       }
@@ -45,6 +61,8 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.error = null;
         showToastSuccess('Registration successful');
+        showToastSuccess(`Welcome ${firstName}`);
+
       } else {
         state.error = 'All fields are required for registration';
         showToastError(state.error);

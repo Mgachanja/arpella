@@ -1,21 +1,37 @@
-import React from 'react'
+import React,{useEffect} from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
 import { login } from '../../redux/slices/authSlice';
 import { toast } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../../styles/boostrapCustom.css'
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
+import { faUser as User } from '@fortawesome/free-regular-svg-icons';
+
 import logo from '../../assets/logo.jpeg'
 
 function Index() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const dispatch = useDispatch();
   const { isAuthenticated, error } = useSelector((state) => state.auth);
+  const navigate = useNavigate();
 
   const onSubmit = (data) => {
     dispatch(login(data));
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/Home');
+    } else {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleNavigate = () => {
+    navigate('/');
   };
 
   const showToastError = (message) => {
@@ -68,8 +84,11 @@ function Index() {
             <div className="d-flex justify-content-between mb-3">
               <a href="/forgot-password">Forgot Password?</a> 
             </div>
-
+            <span className='text-center App font-weight-bold mb-3'> or </span>
             <div className="d-grid gap-3">
+            <button type="button" onClick={handleNavigate} className="mt-3 btn btn-outline-dark">
+                  <FontAwesomeIcon icon={User} /> dont have an account? register
+                </button>
               <button type="button" className="btn btn-outline-danger">
               <FontAwesomeIcon icon={faGoogle} /> Login with Google
               </button>
@@ -77,8 +96,6 @@ function Index() {
               <FontAwesomeIcon icon={faFacebook} /> Login with Facebook
               </button>
             </div>
-            {//isAuthenticated && showToastSuccess('Login successful')
-            }
             {error && showToastError(error)}
           </form>
         </div>
