@@ -42,7 +42,7 @@ function index() {
           <button className="btn category-btn me-2">Canned Foods</button>
           <button className="btn category-btn me-2">Health and Wellness</button>
         </div>
-        <div className="container mt-4">
+        <div className="container mt-4 pd-4">
           <h5 className="text-start  mb-1">ALL PRODUCTS</h5>
           <div className="row">
             {products.map((product, index) => (
