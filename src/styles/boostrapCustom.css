@@ -1,7 +1,7 @@
 .App {
     text-align: center;
   }
-
+/* login and registration style */
 .primary-text-custom{
     color: 96734F !important;
 }
@@ -36,6 +36,7 @@
     width: 100% !important;
     height: 100% !important;
 }
+/* nav styles */
 
 .custom-btn {
     background-color: #faeada;
@@ -48,3 +49,52 @@
     color: white;
 }
 
+
+/* home/landing page styles*/
+
+.category-btn{
+    background-color: #f8e7db;
+    border-radius: 30px;
+    transition: background-color 0.3s ease, color 0.3s ease; 
+}
+
+.category-btn:hover {
+    background-color: #cd9c86; 
+    color: white;
+}
+/* card styles */
+.card-btn{
+    transition: background-color 0.3s ease, color 0.3s ease; 
+}
+
+.responsive-card {
+    width: 100% !important; 
+    max-width: 200px !important; 
+    margin: 10px auto; 
+    cursor: pointer;
+  }
+  
+  @media (min-width: 576px) {
+    .responsive-card {
+      max-width: 180px ; 
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .responsive-card {
+      max-width: 220px ;
+  }
+  
+  @media (min-width: 992px) {
+    .responsive-card {
+      max-width: 250px ; 
+    }
+    .cart-btn:hover{
+        background-color: #4e3f35 !important;
+        color: white !important;
+        transition: background-color 0.3s ease, color 0.3s ease; 
+    }
+
+  }
+}
+  
