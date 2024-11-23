@@ -46,7 +46,9 @@ function index() {
           <h5 className="text-start  mb-1">ALL PRODUCTS</h5>
           <div className="row">
             {products.map((product, index) => (
-              <ProductContainer key={index} Name={product.Name} Price={product.Price} Image={product.Image} />  
+              <div className="col-6 col-md-3 col-lg-2 mb-1" key={index}>
+                <ProductContainer key={index} Name={product.Name} Price={product.Price} Image={product.Image} /> 
+              </div> 
             ))}
           </div>
         </div>
