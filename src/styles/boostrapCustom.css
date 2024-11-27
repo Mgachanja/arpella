@@ -78,13 +78,17 @@
     .responsive-card {
       max-width: 180px ; 
     }
+
+    .hide-mobile{
+        display: none !important;
+    }
   }
   
   @media (min-width: 768px) {
     .responsive-card {
       max-width: 220px ;
   }
-  
+
   @media (min-width: 992px) {
     .responsive-card {
       max-width: 250px ; 
@@ -94,7 +98,18 @@
         color: white !important;
         transition: background-color 0.3s ease, color 0.3s ease; 
     }
+    .hide-large-screen{
+        display: none !important;
+    }
 
   }
 }
+
+@media (max-width: 768px){
+    .hide{
+        display: none !important;
+    }
+}
+
+ 
   

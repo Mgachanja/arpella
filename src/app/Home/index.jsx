@@ -1,61 +1,230 @@
-import React from 'react'
-import Nav from '../../components/Nav'
-import ProductContainer from '../../components/ProductContainer'
+import React, { useState } from 'react';
+import { toast } from 'react-toastify';
+import Nav from '../../components/Nav';
+import '../../styles/boostrapCustom.css';
+import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
+import ProductContainer from '../../components/ProductContainer';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
+import Offcanvas from 'react-bootstrap/Offcanvas';
+import { TextField, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
+import { Accordion, AccordionSummary, AccordionDetails, Typography, Button } from '@mui/material';
+import { products } from '../../demoData/products';
+import Modal from 'react-bootstrap/Modal';
+import { useDispatch, useSelector } from 'react-redux';
+import { addItemToCart, removeItemFromCart, updateItemQuantity } from '../../redux/slices/cartSlice';
 
-function index() {
-  const products = [
-    { Name: "Apple", Price: 100, Image: "https://via.placeholder.com/200?text=Apple" },
-    { Name: "Orange", Price: 80, Image: "https://via.placeholder.com/200?text=Orange" },
-    { Name: "Banana", Price: 50, Image: "https://via.placeholder.com/200?text=Banana" },
-    { Name: "Grapes", Price: 120, Image: "https://via.placeholder.com/200?text=Grapes" },
-    { Name: "Mango", Price: 150, Image: "https://via.placeholder.com/200?text=Mango" },
-    { Name: "Pineapple", Price: 200, Image: "https://via.placeholder.com/200?text=Pineapple" },
-    { Name: "Strawberries", Price: 300, Image: "https://via.placeholder.com/200?text=Strawberries" },
-    { Name: "Watermelon", Price: 90, Image: "https://via.placeholder.com/200?text=Watermelon" },
-    { Name: "Tomatoes", Price: 70, Image: "https://via.placeholder.com/200?text=Tomatoes" },
-    { Name: "Cabbage", Price: 40, Image: "https://via.placeholder.com/200?text=Cabbage" },
-    { Name: "Onions", Price: 60, Image: "https://via.placeholder.com/200?text=Onions" },
-    { Name: "Potatoes", Price: 80, Image: "https://via.placeholder.com/200?text=Potatoes" },
-    { Name: "Garlic", Price: 150, Image: "https://via.placeholder.com/200?text=Garlic" },
-    { Name: "Carrots", Price: 100, Image: "https://via.placeholder.com/200?text=Carrots" },
-    { Name: "Lettuce", Price: 90, Image: "https://via.placeholder.com/200?text=Lettuce" },
-    { Name: "Chilies", Price: 130, Image: "https://via.placeholder.com/200?text=Chilies" },
-    { Name: "Cucumbers", Price: 70, Image: "https://via.placeholder.com/200?text=Cucumbers" },
-    { Name: "Peaches", Price: 250, Image: "https://via.placeholder.com/200?text=Peaches" },
-    { Name: "Pears", Price: 180, Image: "https://via.placeholder.com/200?text=Pears" },
-    { Name: "Plums", Price: 160, Image: "https://via.placeholder.com/200?text=Plums" },
-  ];
-  
+function Index() {
+  const [show, setShow] = useState(false);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [modalShow, setModalShow] = useState(false);
+  const [modalProduct, setModalProduct] = useState(null);
+
+  const handleClose = () => setShow(false);
+  const handleShow = () => setShow(true);
+
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const cart = useSelector((state) => state.cart.items);
+
+  const categories = Array.from(new Set(products.map(product => product.Category))).map(category => ({
+    name: category,
+    subCategories: Array.from(new Set(products.filter(product => product.Category === category).map(product => product.SubCategory))),
+  }));
+
+  const navigateToCart = () => {
+    // Redirect to the cart page
+    setModalShow(false);
+    navigate('/cart');
+  };
+
+  const handleProductClick = (product) => {
+    const cartItem = cart[product.id];
+    setModalProduct({
+      ...product,
+      quantity: cartItem ? cartItem.quantity : 1,
+    });
+    setModalShow(true);
+  };
+
+  const handleAddToCart = () => {
+    if (!modalProduct) return;
+    const productWithId = {
+      ...modalProduct,
+      id: modalProduct.id || uuidv4(),
+    };
+    dispatch(addItemToCart({ product: productWithId }));
+  };
+
+  const filterProductsByCategory = (category) => {
+    setSelectedCategory(category);
+    setFilteredProducts(
+      category === 'All' ? products : products.filter((product) => product.Category === category)
+    );
+  };
+
+  const displayedProducts = filteredProducts.length > 0 ? filteredProducts : products;
+
   return (
     <div>
-      <Nav/>
-      <div>
-        <div>
-        <div style={{ overflowX: 'auto', whiteSpace: 'nowrap', padding: '0 10px' }} className='container-fluid d-flex align-items-center  justify-content-center py-2'>
-        <button className="btn  category-btn me-1 ">Categories</button>
-          <button className="btn category-btn me-2">Beverages</button>
-          <button className="btn category-btn me-2">Snacks</button>
-          <button className="btn category-btn me-2">Dairy</button>
-          <button className="btn category-btn me-2">Bakery</button>
-          <button className="btn category-btn me-2">Dry Foods and Staples</button>
-          <button className="btn category-btn me-2">Condiments and Spices</button>
-          <button className="btn category-btn me-2">Canned Foods</button>
-          <button className="btn category-btn me-2">Health and Wellness</button>
+      <Nav />
+      {/* Offcanvas Button */}
+      <button className="hide-large-screen d-flex align-items-start mt-3 ms-3 py-1" onClick={handleShow}>
+        <MenuRoundedIcon />
+      </button>
+
+      <div className="container-fluid d-flex align-items-center hide justify-content-center py-2">
+          <button
+            className="btn hide category-btn me-2"
+            onClick={() => filterProductsByCategory('All')}
+          >
+            All
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.name}
+              className="btn category-btn me-2"
+              onClick={() => filterProductsByCategory(category.name)}
+            >
+              {category.name}
+            </button>
+          ))}
         </div>
-        <div className="container mt-4 pd-4">
-          <h5 className="text-start  mb-1">ALL PRODUCTS</h5>
-          <div className="row">
-            {products.map((product, index) => (
-              <div className="col-6 col-md-3 col-lg-2 mb-1" key={index}>
-                <ProductContainer key={index} Name={product.Name} Price={product.Price} Image={product.Image} /> 
-              </div> 
-            ))}
-          </div>
-        </div>
+
+      {/* Offcanvas with Accordion */}
+      <Offcanvas show={show} onHide={handleClose} placement="start">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Categories</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          {categories.map((category, index) => (
+            <Accordion key={index}>
+              <AccordionSummary
+                expandIcon={<MenuRoundedIcon />}
+                aria-controls={`panel${index}-content`}
+                id={`panel${index}-header`}
+              >
+                <Typography>{category.name}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {category.subCategories.map((subCategory, subIndex) => (
+                  <Button
+                    key={subIndex}
+                    fullWidth
+                    variant="text"
+                    onClick={() => {
+                      setSelectedCategory(subCategory);
+                      setFilteredProducts(
+                        products.filter((product) => product.SubCategory === subCategory)
+                      );
+                      handleClose(); 
+                    }}
+                  >
+                    {subCategory}
+                  </Button>
+                ))}
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </Offcanvas.Body>
+      </Offcanvas>
+
+      {/* Product Listing */}
+      <div className="container mt-4 pd-4">
+        <h5 className="text-start mb-1">{selectedCategory === 'All' ? 'ALL PRODUCTS' : selectedCategory}</h5>
+        <div className="row">
+          {displayedProducts.map((product, index) => (
+            <div className="col-6 col-md-3 col-lg-2 mb-1" key={index}>
+              <div onClick={() => handleProductClick(product)}>
+                <ProductContainer
+                  key={index}
+                  Name={product.Name}
+                  Price={product.Price}
+                  Image={product.Image}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Modal */}
+      <Modal
+        show={modalShow}
+        onHide={() => setModalShow(false)}
+        centered
+      >
+        {modalProduct && (
+          <>
+            <Modal.Header closeButton>
+              <Modal.Title>{modalProduct.Name}</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <div className="d-flex justify-content-between align-items-start">
+                <div style={{ flex: '1 1 50%', paddingRight: '20px' }}>
+                  <img
+                    src={modalProduct.Image}
+                    alt={modalProduct.Name}
+                    style={{ maxWidth: '100%', maxHeight: '200px' }}
+                  />
+                </div>
+                <div style={{ flex: '1 1 50%' }}>
+                  <h5>Price: ${modalProduct.Price}</h5>
+                  <div className="mt-3">
+                    <div className="d-flex align-items-center">
+                      <button
+                        className="btn btn-sm btn-primary me-2"
+                        onClick={() =>
+                          setModalProduct((prev) => ({
+                            ...prev,
+                            quantity: Math.max(1, prev.quantity - 1),
+                          }))
+                        }
+                      >
+                        -
+                      </button>
+                      <span>{modalProduct.quantity}</span>
+                      <button
+                        className="btn btn-sm btn-primary ms-2"
+                        onClick={() =>
+                          setModalProduct((prev) => ({
+                            ...prev,
+                            quantity: prev.quantity + 1,
+                          }))
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      className="btn btn-primary mt-3 w-100"
+                      onClick={() => {
+                        handleAddToCart();
+                        setModalShow(false);
+                      }}
+                    >
+                      Update Cart
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="secondary" onClick={() => setModalShow(false)}>
+                Close
+              </Button>
+              <Button variant="secondary" onClick={() => navigateToCart}>
+                go to cart
+              </Button>
+            </Modal.Footer>
+          </>
+        )}
+      </Modal>
     </div>
-  )
+  );
 }
 
-export default index
+export default Index;
