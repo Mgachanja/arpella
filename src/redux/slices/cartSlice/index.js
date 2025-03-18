@@ -1,35 +1,43 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+
 const cartSlice = createSlice({
   name: 'cart',
   initialState: {
-    items: {} 
+    items: {}, // Cart items stored by unique product Name or ID
   },
   reducers: {
     addItemToCart: (state, action) => {
       const { product } = action.payload;
       const { id } = product;
+    
       if (!id) {
         console.error("Product ID is undefined");
-        return;
+        return; // Prevent invalid updates
       }
+    
       if (state.items[id]) {
+        // Increment the quantity if the product already exists
         state.items[id].quantity += product.quantity;
       } else {
+        // Add new product with the specified quantity
         state.items[id] = product;
       }
-      console.log("Cart after addItemToCart:", JSON.parse(JSON.stringify(state.items)));
+    
+      console.log("Updated Cart:", state.items); // Log the updated cart state
     },
+
+    // Optional: Remove item from the cart
     removeItemFromCart: (state, action) => {
-      const productId = action.payload;
-      delete state.items[productId];
-      console.log("Cart after removeItemFromCart:", JSON.parse(JSON.stringify(state.items)));
+      const productName = action.payload; // Assume payload is the product's Name
+      delete state.items[productName];
     },
+
+    // Optional: Clear the cart
     clearCart: (state) => {
       state.items = {};
-      console.log("Cart cleared:", JSON.parse(JSON.stringify(state.items)));
-    }
-  }
+    },
+  },
 });
 
 export const { addItemToCart, removeItemFromCart, clearCart } = cartSlice.actions;
