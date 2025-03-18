@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect,useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
-import { register as registerUser } from '../../redux/slices/authSlice';
 import { toast } from 'react-toastify';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '../../styles/boostrapCustom.css';
@@ -10,12 +9,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons';
 import { faUser as User } from '@fortawesome/free-regular-svg-icons';
 import { useNavigate } from 'react-router-dom';
+import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { registerUser } from '../../redux/slices/authSlice';
 
 function Registration() {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, watch, formState: { errors } } = useForm();
   const dispatch = useDispatch();
-  const { isAuthenticated, error, loading } = useSelector((state) => state.auth);
+  const { isAuthenticated, loading } = useSelector((state) => state.auth);
   const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -23,16 +25,24 @@ function Registration() {
     }
   }, [isAuthenticated, navigate]);
 
-  const onSubmit = (data) => {
-    dispatch(registerUser(data));
+  const validatePassword = (value) => {
+    const pattern = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&#^_+=<>?,./|~])[A-Za-z\d@$!%*?&#^_+=<>?,./|~]{8,}$/;
+    return pattern.test(value) || 'Password must have at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character';
+  };
+
+  const onSubmit = async (data) => {
+    const credentials = {
+      FirstName:data.FirstName,
+      LastName:data.LastName,
+      email:data.email,
+      PhoneNumber: data.phone,
+      passwordHash: data.password,
+    };
+    dispatch(registerUser(credentials))
   };
 
   const handleNavigate = () => {
     navigate('/login');
-  };
-
-  const showToastError = (message) => {
-    toast.error(message);
   };
 
   return (
@@ -52,9 +62,9 @@ function Registration() {
                   type="text"
                   className="form-control"
                   placeholder="First Name"
-                  {...register("firstName", { required: "First Name is required" })}
+                  {...register('FirstName', { required: 'First Name is required' })}
                 />
-                {errors.firstName && showToastError(errors.firstName.message)}
+                {errors.FirstName && <small className="text-danger">{errors.FirstName.message}</small>}
               </div>
 
               <div className="form-group mb-3 text-start">
@@ -63,9 +73,9 @@ function Registration() {
                   type="text"
                   className="form-control"
                   placeholder="Last Name"
-                  {...register("lastName", { required: "Last Name is required" })}
+                  {...register('LastName', { required: 'Last Name is required' })}
                 />
-                {errors.lastName && showToastError(errors.lastName.message)}
+                {errors.LastName && <small className="text-danger">{errors.LastName.message}</small>}
               </div>
 
               <div className="form-group mb-3 text-start">
@@ -74,21 +84,30 @@ function Registration() {
                   type="email"
                   className="form-control"
                   placeholder="Email"
-                  {...register("email", { required: "Email is required" })}
+                  {...register('email', { required: 'Email is required' })}
                 />
-                {errors.email && showToastError(errors.email.message)}
+                {errors.email && <small className="text-danger">{errors.email.message}</small>}
               </div>
 
-              <div className="form-group mb-3 text-start">
-                <label>Password:</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  placeholder="Password"
-                  {...register("password", { required: "Password is required" })}
-                />
-                {errors.password && showToastError(errors.password.message)}
-              </div>
+                          <div className="text-start form-group mb-3 position-relative">
+                            <label>Password:</label>
+                            <div className="input-group">
+                              <input
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder="Password"
+                                className="form-control"
+                                {...register('password', { required: 'Password is required' })}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary"
+                                onClick={() => setShowPassword(!showPassword)}
+                              >
+                                <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+                              </button>
+                            </div>
+                            {errors.password && <small className="text-danger">{errors.password.message}</small>}
+                          </div>
 
               <div className="form-group mb-3 text-start">
                 <label>Phone Number:</label>
@@ -96,16 +115,16 @@ function Registration() {
                   type="text"
                   className="form-control"
                   placeholder="Phone Number"
-                  {...register("phone", { required: "Phone Number is required" })}
+                  {...register('phone', { required: 'Phone Number is required' })}
                 />
-                {errors.phone && showToastError(errors.phone.message)}
+                {errors.phone && <small className="text-danger">{errors.phone.message}</small>}
               </div>
 
               <button type="submit" className="btn btn-primary w-100 mb-3" disabled={loading}>
-                {loading ? "Registering..." : "Register"}
+                {loading ? 'Registering...' : 'Register'}
               </button>
 
-              <span className='text-center App mb-3'> or </span>
+              <span className="text-center App mb-3"> or </span>
               <div className="d-grid gap-3">
                 <button type="button" onClick={handleNavigate} className="mt-3 btn btn-outline-dark">
                   <FontAwesomeIcon icon={User} /> Already have an account? Login
@@ -117,8 +136,6 @@ function Registration() {
                   <FontAwesomeIcon icon={faFacebook} /> Login with Facebook
                 </button>
               </div>
-
-              {error && showToastError(error)}
             </form>
           </div>
         </div>

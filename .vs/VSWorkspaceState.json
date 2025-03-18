@@ -1,0 +1,13 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\app",
+    "\\src\\app\\profile",
+    "\\src\\redux",
+    "\\src\\redux\\slices",
+    "\\src\\redux\\slices\\authSlice"
+  ],
+  "SelectedNode": "\\src\\app\\profile\\index.jsx",
+  "PreviewInSolutionExplorer": false
+}
