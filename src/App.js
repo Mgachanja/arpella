@@ -14,9 +14,9 @@ import Cart from "./app/Cart";
 import Profile from "./app/profile";
 import ControlPanel from "./app/controlPanel";
 import Package from "./app/profile/Package";
-import ProtectedRoute from "./app/ProtectedRoute";
-import LoadingSpinner from "../src/components/LoadingSpinner"
-
+import ProtectedRoute from "./app/ProtectedRoute"
+import Terms from "./app/Terms"
+import Privacy from "./app/Privacy"
 function App() {
   return (
     <Provider store={store}>
@@ -25,10 +25,11 @@ function App() {
           <Router>
             <div>
               <ToastContainer />
-              <LoadingSpinner /> {/* Show loader when isLoading is true */}
               <Routes>
                 <Route path="/" element={<Registration />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/terms-and-conditions" element={<Terms />} />
+                <Route path="/privacy-policy" element={<Privacy />} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />

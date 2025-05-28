@@ -1,12 +1,35 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux'; // Get role from Redux state
-import { Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import {
+  Box,
+  CssBaseline,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Typography,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHome, faBox, faUserPlus, faComments, faClipboardList, faCog, faMoneyBill } from '@fortawesome/free-solid-svg-icons';
+import {
+  faHome,
+  faBox,
+  faUserPlus,
+  faComments,
+  faClipboardList,
+  faCog,
+  faMoneyBill,
+} from '@fortawesome/free-solid-svg-icons';
 import Home from './home';
 import Stock from './stockManagement';
 import Staff from './staff';
-import CustomerFeedback from './feedback';
 import OrderManagement from './orderManagement';
 import Settings from './settings';
 import Accounts from './account';
@@ -16,21 +39,36 @@ const drawerWidth = 250;
 
 const Dashboard = () => {
   const [selectedMenu, setSelectedMenu] = useState('Home');
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useSelector((state) => state.auth); // Get user info
-
-  const role = user?.role || 'Customer'; // Default role is customer (no access)
+  const role = user?.role || 'Customer';
 
   const allowedRoutes = {
-    "Admin": ['Home', 'Stock Management', 'Add Staff', 'Customer Feedback', 'Orders', 'Settings', 'Accounts'],
-    "Order_Manager": ['Home','Orders'],
-    Accountant: ['Home','Accounts'],
+    Admin: ['Home', 'Stock Management', 'Add Staff', 'Customer', 'Orders', 'Settings', 'Accounts'],
+    Order_Manager: ['Home', 'Orders'],
+    Accountant: ['Home', 'Accounts'],
     Customer: [],
-    "Delivery Guy": [],
+   "Delivery Guy": [],
+  };
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
   const renderContent = () => {
-    if (!allowedRoutes[role].includes(selectedMenu)) return toast.error("Access denied");
-
+    if (!allowedRoutes[role].includes(selectedMenu)) {
+      toast.error("Access denied");
+      return (
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" color="error">
+            Access Denied
+          </Typography>
+        </Box>
+      );
+    }
     switch (selectedMenu) {
       case 'Home':
         return <Home />;
@@ -38,8 +76,6 @@ const Dashboard = () => {
         return <Stock />;
       case 'Add Staff':
         return <Staff />;
-      case 'Customer Feedback':
-        return <CustomerFeedback />;
       case 'Orders':
         return <OrderManagement />;
       case 'Settings':
@@ -51,53 +87,116 @@ const Dashboard = () => {
     }
   };
 
+  // Drawer content without extra top spacing
+  const drawer = (
+    <Box sx={{ width: drawerWidth }}>
+      <List>
+        {[
+          { text: 'Home', icon: faHome },
+          { text: 'Stock Management', icon: faBox },
+          { text: 'Add Staff', icon: faUserPlus },
+          { text: 'Customer Feedback', icon: faComments },
+          { text: 'Orders', icon: faClipboardList },
+          { text: 'Settings', icon: faCog },
+          { text: 'Accounts', icon: faMoneyBill },
+        ]
+          .filter((item) => allowedRoutes[role].includes(item.text))
+          .map(({ text, icon }) => (
+            <ListItem key={text} disablePadding>
+              <ListItemButton
+                onClick={() => {
+                  setSelectedMenu(text);
+                  if (isMobile) setMobileOpen(false);
+                }}
+                sx={{
+                  backgroundColor: selectedMenu === text ? '#ff5733' : 'transparent',
+                  color: selectedMenu === text ? '#ffffff' : '#000000',
+                  '&:hover': {
+                    backgroundColor: selectedMenu === text ? '#0056b3' : '#e9ecef',
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ color: selectedMenu === text ? '#ffffff' : '#000000' }}>
+                  <FontAwesomeIcon icon={icon} />
+                </ListItemIcon>
+                <ListItemText primary={text} />
+              </ListItemButton>
+            </ListItem>
+          ))}
+      </List>
+    </Box>
+  );
+
   return (
-    <div style={{ display: 'flex' }}>
-      {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box', backgroundColor: '#f8f9fa' },
-        }}
-      >
-        <List>
-          {[
-            { text: 'Home', icon: faHome },
-            { text: 'Stock Management', icon: faBox },
-            { text: 'Add Staff', icon: faUserPlus },
-            { text: 'Customer Feedback', icon: faComments },
-            { text: 'Orders', icon: faClipboardList },
-            { text: 'Settings', icon: faCog },
-            { text: 'Accounts', icon: faMoneyBill },
-          ]
-            .filter((item) => allowedRoutes[role].includes(item.text)) // Filter menu items based on role
-            .map(({ text, icon }) => (
-              <ListItem key={text} disablePadding>
-                <ListItemButton
-                  onClick={() => setSelectedMenu(text)}
-                  sx={{
-                    backgroundColor: selectedMenu === text ? '#ff5733' : 'transparent',
-                    color: selectedMenu === text ? '#ffffff' : '#000000',
-                    '&:hover': { backgroundColor: selectedMenu === text ? '#0056b3' : '#e9ecef' },
-                  }}
-                >
-                  <ListItemIcon sx={{ color: selectedMenu === text ? '#ffffff' : '#000000' }}>
-                    <FontAwesomeIcon icon={icon} />
-                  </ListItemIcon>
-                  <ListItemText primary={text} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-        </List>
-      </Drawer>
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
+
+      {/* AppBar for mobile */}
+      {isMobile && (
+        <AppBar position="fixed" sx={{ width: '100%' }}>
+          <Toolbar>
+            <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2 }}>
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" noWrap>
+              Dashboard
+            </Typography>
+          </Toolbar>
+        </AppBar>
+      )}
+
+      {/* Sidebar Drawer */}
+      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }} aria-label="sidebar">
+        {isMobile ? (
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              display: { xs: 'block', sm: 'none' },
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+                backgroundColor: '#f8f9fa',
+              },
+            }}
+          >
+            {drawer}
+          </Drawer>
+        ) : (
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+                backgroundColor: '#f8f9fa',
+              },
+            }}
+            open
+          >
+            {drawer}
+          </Drawer>
+        )}
+      </Box>
 
       {/* Main Content */}
-      <main style={{ flexGrow: 1, padding: '20px' }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 2,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          overflow: 'auto',
+          minHeight: '100vh',
+        }}
+      >
+        {isMobile && <Toolbar />}
         {renderContent()}
-      </main>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

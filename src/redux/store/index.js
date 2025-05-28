@@ -23,7 +23,7 @@ export const store = configureStore({
     products: productsReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({ serializableCheck: false }).concat(thunk), // Prevent serializable state check errors
+    getDefaultMiddleware({ serializableCheck: false }), // Prevent serializable state check errors
 });
 
 export const persistor = persistStore(store);

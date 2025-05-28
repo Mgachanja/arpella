@@ -1,7 +1,6 @@
 import { toast } from 'react-toastify';
 import axios from 'axios';
-
-const baseUrl = process.env.REACT_APP_BASE_API_URL;
+import { baseUrl } from '../constants';
 
 
 export const loginUserApi = async (credentials) => {
@@ -33,14 +32,16 @@ export const loginUserApi = async (credentials) => {
 };
 
 
-
-
-
-
 export const registerUserApi = async (userData) => {
   console.log(userData)
   try {
-    const response = await axios.post(`${baseUrl}/register`, userData);
+    const response = await axios.post(`${baseUrl}/register`, userData,
+       {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
     console.log(response)
     return response.data[0];
 

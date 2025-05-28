@@ -49,6 +49,8 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.user = null;
       state.error = null;
+      // Clear persisted user data
+      localStorage.removeItem('user');
       showToastSuccess('Logged out successfully');
     },
   },
@@ -60,15 +62,20 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (!action.payload) {
+          state.error = 'Login failed. No response received.';
+          showToastError('Login failed. Please try again.');
+          return;
+        }
         state.isAuthenticated = true;
         state.user = {
           firstName: action.payload.firstName,
           lastName: action.payload.lastName,
           phone: action.payload.phoneNumber,
           email: action.payload.email,
-          role: action.payload.role, // Store role from API
+          role: action.payload.role,
         };  
-        state.isLoading = false;
         showToastSuccess(`Welcome, ${state.user.firstName || 'User'}!`);
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -83,6 +90,12 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        if (!action.payload) {
+          state.error = 'Registration failed. No response received.';
+          showToastError('Registration failed. Please try again.');
+          return;
+        }
         state.isAuthenticated = true;
         state.user = {
           firstName: action.payload.firstName,
@@ -91,9 +104,12 @@ const authSlice = createSlice({
           email: action.payload.email,
           role: action.payload.role,
         };  
-        state.isLoading = false;
         showToastSuccess('Registration successful');
-        showToastSuccess(`Welcome ${state.user.firstName}!`);
+        showToastSuccess(`Welcome ${state.user.firstName || 'User'}!`);
+        if (action.meta.arg.rememberMe) {
+          const hashedUser = btoa(JSON.stringify(state.user));
+          localStorage.setItem('user', hashedUser);
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;

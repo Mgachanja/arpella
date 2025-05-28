@@ -16,10 +16,12 @@ import {
 } from '@stripe/react-stripe-js';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
+import Spinner from 'react-bootstrap/Spinner';
 import { removeItemFromCart, clearCart } from '../../redux/slices/cartSlice';
-import { processMpesaPayment } from '../../services/mpesa'; // Adjust this path
-
+import axios from 'axios';
+import { baseUrl } from '../../constants';
 const stripePromise = loadStripe('your-publishable-key-here');
+const googleMapsApiKey = "AIzaSyD-YPpUWHXNzvQjjXjqj7mvO2Idi72jREc";
 
 const CARD_ELEMENT_OPTIONS = {
   style: {
@@ -50,7 +52,6 @@ function CheckoutForm({ onClose, finalAmount }) {
     setIsLoading(true);
 
     const cardNumberElement = elements.getElement(CardNumberElement);
-
     const { error, paymentMethod } = await stripe.createPaymentMethod({
       type: 'card',
       card: cardNumberElement,
@@ -92,23 +93,29 @@ function CheckoutForm({ onClose, finalAmount }) {
 
 function Cart() {
   const dispatch = useDispatch();
-  // Retrieve cart items and product details from Redux.
   const cartItems = useSelector((state) => state.cart.items);
   const products = useSelector((state) => state.products.products);
-  // Retrieve phone number from the auth slice.
-  const phoneNumber = useSelector((state) => state.auth.user?.phone);
+  // We no longer rely solely on redux for the phone number;
+  // the user must now input it via the checkout modal.
+  // const phoneNumber = useSelector((state) => state.auth.user?.phone);
 
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [isApiLoading, setIsApiLoading] = useState(false);
+  // New state variables for checkout form inputs:
+  const [checkoutPhone, setCheckoutPhone] = useState('');
+  const [checkoutKraPin, setCheckoutKraPin] = useState('');
+
   const deliveryCost = 10;
 
-  // Merge minimal cart data with full product details.
+  // Merge cart items with product details, ensuring each fused item retains its original id.
   const fusedCartItems = Object.values(cartItems).map((item) => {
     const productData = products.find((prod) => prod.id === item.id) || {};
-    return { ...productData, quantity: item.quantity };
+    return { ...productData, quantity: item.quantity, id: item.id };
   });
 
-  // Compute totals.
+  console.log('Fused Cart Items:', fusedCartItems);
+
   const computedTotals = fusedCartItems.reduce(
     (acc, item) => {
       const quantity = item.quantity || 0;
@@ -134,7 +141,6 @@ function Cart() {
   const vatTotal = computedTotals.vat;
   const finalCost = subtotal + vatTotal + deliveryCost;
 
-  // Check for purchase cap violations.
   const isAnyProductCapExceeded = fusedCartItems.some((item) => {
     if (item.purchaseCap != null) {
       return item.quantity > parseInt(item.purchaseCap);
@@ -143,29 +149,62 @@ function Cart() {
   });
 
   const handleCheckout = async (method) => {
+    // For the non-card methods
     setSelectedPaymentMethod(method);
+
     if (method === 'mpesa') {
+      // Validate checkout phone number
+      if (!checkoutPhone.trim()) {
+        errorToast('Please enter your phone number.');
+        return;
+      }
       successToast('Proceeding with Mpesa payment.');
-      // Use the phone number from Redux; ensure it's in the correct format (e.g., 2547XXXXXXXX)
-      const accountReference = 'YOUR_ACCOUNT_REF';
-      const transactionDesc = 'Payment for purchase';
-      const callbackURL = 'https://yourwebsite.com/callback';
+      setIsApiLoading(true);
+
+      let locationData;
+      try {
+        // Request location using Google Maps Geolocation API
+        const response = await axios.post(
+          `https://www.googleapis.com/geolocation/v1/geolocate?key=${googleMapsApiKey}`
+        );
+        locationData = response.data.location; // Expected structure: { lat, lng }
+        console.log('Location from Google API:', locationData);
+      } catch (error) {
+        errorToast('Failed to fetch location.');
+        console.error(error);
+        setIsApiLoading(false);
+        return;
+      }
+
+      // Build the payload using input values and location
+      const orderPayload = {
+        buyerPin: checkoutKraPin.trim() ? checkoutKraPin.trim() : "N/A",
+        latitude: locationData.lat,
+        longitude: locationData.lng,
+        orderitems: fusedCartItems.map((item) => ({
+          productId: Number(item.id), // sent as number per your sample payload
+          quantity: item.quantity,
+        })),
+        userId: checkoutPhone.trim(),
+      };
+
+      console.log('Order Payload:', orderPayload);
 
       try {
-        const response = await processMpesaPayment({
-          amount: finalCost,
-          phoneNumber, // from Redux auth slice
-          accountReference,
-          transactionDesc,
-          callbackURL,
-        });
-        successToast('Mpesa payment initiated successfully.');
-        console.log('Mpesa response:', response);
+        const orderResponse = await axios.post(`${baseUrl}/order`, orderPayload);
+        successToast('Order created successfully.');
+        console.log('Order response:', orderResponse.data);
       } catch (error) {
-        errorToast('Mpesa payment failed.');
+        const errMsg =
+          error.response && error.response.data
+            ? error.response.data
+            : 'Failed to create order via Mpesa payment.';
+        errorToast(errMsg);
         console.error(error);
+      } finally {
+        setIsApiLoading(false);
+        setShowCheckoutModal(false);
       }
-      setShowCheckoutModal(false);
     } else if (method === 'airtel') {
       successToast('Proceeding with Airtel Money payment.');
       setShowCheckoutModal(false);
@@ -294,6 +333,32 @@ function Cart() {
           <Modal.Title>Checkout Summary</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          <div className="mb-3">
+            <h5>Enter your details</h5>
+            <div className="mb-2">
+              <label className="form-label">
+                Phone Number <span className="text-danger">*</span>
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter your phone number"
+                value={checkoutPhone}
+                onChange={(e) => setCheckoutPhone(e.target.value)}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="form-label">KRA Tax Pin (Optional)</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter your KRA Tax Pin"
+                value={checkoutKraPin}
+                onChange={(e) => setCheckoutKraPin(e.target.value)}
+              />
+            </div>
+          </div>
+
           {fusedCartItems.length === 0 ? (
             <p>Your cart is empty.</p>
           ) : (
@@ -347,18 +412,16 @@ function Cart() {
                   <strong>Final Cost: KSH {finalCost.toFixed(2)}</strong>
                 </p>
               </div>
-              <div className="mt-4">
-                <div className="d-flex flex-column">
-                  <button className="btn btn-success mb-2" onClick={() => handleCheckout('mpesa')}>
-                    Pay via Mpesa
-                  </button>
-                  <button className="btn btn-danger mb-2" onClick={() => handleCheckout('airtel')}>
-                    Pay via Airtel Money
-                  </button>
-                  <button className="btn btn-primary mb-2" onClick={() => handleCheckout('visa')}>
-                    Pay via Visa/Mastercard
-                  </button>
-                </div>
+              <div className="mt-4 d-flex flex-column">
+                <button className="btn btn-success mb-2" onClick={() => handleCheckout('mpesa')}>
+                  Pay via Mpesa
+                </button>
+                <button className="btn btn-danger mb-2" onClick={() => handleCheckout('airtel')}>
+                  Pay via Airtel Money
+                </button>
+                <button className="btn btn-primary mb-2" onClick={() => handleCheckout('visa')}>
+                  Pay via Visa/Mastercard
+                </button>
               </div>
             </div>
           )}
@@ -374,6 +437,14 @@ function Cart() {
           <Elements stripe={stripePromise}>
             <CheckoutForm onClose={() => setSelectedPaymentMethod('')} finalAmount={finalCost} />
           </Elements>
+        </Modal.Body>
+      </Modal>
+
+      {/* API Loading Spinner Modal */}
+      <Modal show={isApiLoading} centered backdrop="static" keyboard={false}>
+        <Modal.Body className="text-center">
+          <Spinner animation="border" role="status" />
+          <p className="mt-3">Processing your request...</p>
         </Modal.Body>
       </Modal>
     </div>

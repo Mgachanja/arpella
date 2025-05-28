@@ -111,5 +111,15 @@
     }
 }
 
- 
+ /* Ensure the T&C modal is wide */
+.wide-modal .modal-dialog {
+    max-width: 800px; 
+  }
+  
+  /* Prevent the nav tabs from wrapping */
+  #tandc-tabs .nav-tabs {
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+  
   

@@ -1,7 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-
-const baseUrl = process.env.REACT_APP_BASE_API_URL;
+import { baseUrl } from "../../../constants";
 
 // Async thunk to fetch staff members
 export const fetchStaffMembers = createAsyncThunk("staff/fetchStaff", async (_, { rejectWithValue }) => {
