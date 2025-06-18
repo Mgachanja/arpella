@@ -17,6 +17,7 @@ import Package from "./app/profile/Package";
 import ProtectedRoute from "./app/ProtectedRoute"
 import Terms from "./app/Terms"
 import Privacy from "./app/Privacy"
+import DeliveryTermsPage from "./app/deliveryTerms";
 function App() {
   return (
     <Provider store={store}>
@@ -30,6 +31,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/terms-and-conditions" element={<Terms />} />
                 <Route path="/privacy-policy" element={<Privacy />} />
+                <Route path="/delivery-terms" element={<DeliveryTermsPage/>}/>
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
