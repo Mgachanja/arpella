@@ -15,6 +15,7 @@ import {
 import axios from "axios";
 import {baseUrl} from "../../constants";
 import { Backdrop, CircularProgress} from "@mui/material";
+import { fetchProducts } from "../../redux/slices/productsSlice";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
   const [showStockModal, setShowStockModal] = useState(false);
@@ -28,11 +29,13 @@ const StockManagement = () => {
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [showEditStockModal, setShowEditStockModal] = useState(false);
   const [showTaxModal,setShowTaxModal] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   // Toast and loading states
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastVariant, setToastVariant] = useState("success");
   const [isLoading, setIsLoading] = useState(false);
+  
 
   // Active view for main content ("stocks", "products", or "suppliers")
   const [activeView, setActiveView] = useState("stocks");
@@ -74,10 +77,7 @@ const StockManagement = () => {
     subcategoryName: "",
     categoryId: null
   });
-  const [supplierData, setSupplierData] = useState({
-    supplierName: "",
-    kraPin: ""
-  });
+  const [supplierData, setSupplierData] = useState([]);
   const [editStockData, setEditStockData] = useState(null);
 
   // Data arrays
@@ -98,6 +98,7 @@ const StockManagement = () => {
 
   useEffect(() => {
     fetchData();
+    fetchProducts()
   }, []);
 
   // Fetch inventories, categories, subcategories, and products
@@ -119,8 +120,6 @@ const fetchData = async () => {
     const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
       headers: { "Content-Type": "application/json" }
     });
-    setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
     const prodRes = await axios.get(`${baseUrl}/products`, {
       headers: { "Content-Type": "application/json" }
@@ -128,10 +127,8 @@ const fetchData = async () => {
     setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const res = await axios.get(`${baseUrl}/suppliers`, {
-      headers: { "Content-Type": "application/json" }
-    });
-    setSuppliers(Array.isArray(res.data) ? res.data : []);
+    setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
   } catch (error) {
     showToastMessage("Failed to fetch data: " + (error.message || "Unknown error"), "danger");
@@ -147,7 +144,8 @@ const fetchData = async () => {
       const res = await axios.get(`${baseUrl}/suppliers`, {
         headers: { "Content-Type": "application/json" }
       });
-      setSuppliers(Array.isArray(res.data) ? res.data : []);
+      setSupplierData(Array.isArray(res.data) ? res.data : []);
+      setActiveView("suppliers")
     } catch (error) {
       showToastMessage("Failed to fetch suppliers: " + (error.message || "Unknown error"), "danger");
     } finally {
@@ -209,7 +207,12 @@ const fetchData = async () => {
       showToastMessage("Stock added successfully");
       setShowStockModal(false);
       resetForms();
-      fetchData();
+        
+      const invRes = await axios.get(`${baseUrl}/inventories`, {
+        headers: { "Content-Type": "application/json" }
+      });
+    setInventories(Array.isArray(invRes.data) ? invRes.data : []);
+    
     } catch (error) {
       showToastMessage("Failed to add stock: " + (error.response?.data?.message || error.message), "danger");
     } finally {
@@ -241,13 +244,14 @@ const fetchData = async () => {
   };
 
   // Handle adding category (now triggered from Add Product modal)
-  const handleAddCategory = async () => {
+  const handleAddCategory = async (e) => {
     try {
       setIsLoading(true);
       if (!categoryName.trim()) throw new Error("Category name is required");
       await axios.post(`${baseUrl}/category`, { categoryName }, {
         headers: { "Content-Type": "application/json" }
       });
+      e.preventDefault()
       showToastMessage("Category added successfully");
       setShowCategoryModal(false);
       resetForms();
@@ -264,7 +268,7 @@ const fetchData = async () => {
   };
 
   // Handle adding subcategory
-  const handleAddSubCategory = async () => {
+  const handleAddSubCategory = async (e) => {
     try {
       setIsLoading(true);
       if (!subCategoryData.subcategoryName.trim() || subCategoryData.categoryId === null) {
@@ -276,7 +280,11 @@ const fetchData = async () => {
       showToastMessage("Subcategory added successfully");
       setShowSubCategoryModal(false);
       resetForms();
-      fetchData();
+      e.preventDefault()
+      const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
+        headers: { "Content-Type": "application/json" }
+      });
+      setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
     } catch (error) {
       showToastMessage("Failed to add subcategory: " + (error.response?.data?.message || error.message), "danger");
     } finally {
@@ -373,7 +381,10 @@ const fetchData = async () => {
       showToastMessage("Product added successfully");
       setShowProductModal(false);
       resetForms();
-      fetchData();
+       const prodRes = await axios.get(`${baseUrl}/products`, {
+      headers: { "Content-Type": "application/json" }
+    });
+    setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
     } catch (error) {
       console.log(error)
       showToastMessage("Failed to add product: " + (error.response?.data?.message || error.response), "danger");
@@ -403,6 +414,7 @@ const fetchData = async () => {
 
   // Handle image upload
   const handleUploadImage = async () => {
+    console.log(imageData)
     try {
       setIsLoading(true);
       if (!imageData.productId || !imageData.image) {
@@ -495,6 +507,7 @@ const fetchData = async () => {
     const fetchInvoices = async () => {
     const res = await axios.get(`${baseUrl}/invoices`);
     setInvoices(res.data);
+    setActiveView("invoice");
   };
   const fetchTaxData = async () => {
     const res = await axios.get(`${baseUrl}/taxData`);
@@ -502,13 +515,23 @@ const fetchData = async () => {
   };
 
   // handlers for adding
- 
-  const handleAddRestock = async () => {
+ const handleAddInvoice = async () => {
     setIsLoading(true);
-    console.log(restockData);
-    await axios.post(`${baseUrl}/restocks`, restockData);
-    setShowRestockModal(false);
+    console.log(invoices);
+    await axios.post(`${baseUrl}/invoice`, invoices);
+    setShowInvoiceModal(false);
     setIsLoading(false);
+ }
+
+
+  const handleAddRestock = async () => {
+    setShowRestockModal(false);
+    setIsLoading(true);
+    try {
+      await axios.post(`${baseUrl}/restocks`, restockData);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -536,7 +559,7 @@ const fetchData = async () => {
           <Navbar.Toggle />
           <Navbar.Collapse>
             <Nav className="justify-content-center">
-              <Nav.Link active={activeView==="stocks"} onClick={()=>setActiveView("stocks")}>
+              <Nav.Link active={activeView==="stocks"} onClick={()=> {setActiveView("stocks")}}>
                 Stocks
               </Nav.Link>
               <Nav.Link active={activeView==="products"} onClick={()=>setActiveView("products")}>
@@ -565,6 +588,10 @@ const fetchData = async () => {
             <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchSuppliers}>View Suppliers</Button>
             <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
             <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchInvoices}>View Invoices</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+
+          
 
           <Table striped bordered hover className="mt-4">
             <thead>
@@ -655,9 +682,17 @@ const fetchData = async () => {
       )}
       {activeView === "suppliers" && (
         <Container>
+
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={setShowStockModal}>add stock</Button> 
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchSuppliers}>View Suppliers</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchInvoices}>View Invoices</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
           <Table striped bordered hover className="mt-4">
             <thead>
               <tr>
+                <th>Supplier ID</th>
                 <th>Supplier Name</th>
                 <th>KRA Pin</th>
                 <th>Actions</th>
@@ -666,19 +701,24 @@ const fetchData = async () => {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan="3" className="text-center">Loading...</td>
+                  <td colSpan="4" className="text-center">Loading...</td>
                 </tr>
-              ) : suppliers.length === 0 ? (
+              ) : supplierData.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="text-center">No suppliers found</td>
+                  <td colSpan="4" className="text-center">No suppliers found</td>
                 </tr>
               ) : (
-                suppliers.map(supplier => (
+                supplierData.map((supplier) => (
                   <tr key={supplier.id}>
+                    <td>{supplier.id}</td>
                     <td>{supplier.supplierName}</td>
                     <td>{supplier.kraPin}</td>
                     <td>
-                      <Button variant="outline-primary" size="sm" href={`${baseUrl}/suppliers/${supplier.id}`}>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        href={`${baseUrl}/suppliers/${supplier.id}`}
+                      >
                         Edit
                       </Button>
                     </td>
@@ -689,6 +729,56 @@ const fetchData = async () => {
           </Table>
         </Container>
       )}
+      {activeView === "invoice" && (
+        <Container>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={setShowStockModal}>add stock</Button> 
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchSuppliers}>View Suppliers</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchInvoices}>View Invoices</Button>
+            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+
+          <Table striped bordered hover className="mt-4">
+            <thead>
+              <tr>
+                <th>Invoice ID</th>
+                <th>Supplier Name</th>
+                <th>Invoice Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan="4" className="text-center">Loading...</td>
+                </tr>
+              ) : invoices.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="text-center">No invoices found</td>
+                </tr>
+              ) : (
+                invoices.map((invoice) => (
+                  <tr key={invoice.invoiceId}>
+                    <td>{invoice.invoiceId}</td>
+                    <td>{invoice.supplierId}</td>
+                    <td>{new Date(invoice.createdAt).toLocaleString()}</td>
+                    <td>
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        href={`${baseUrl}/invoices/${invoice.id}`}
+                      >
+                        Edit
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>          
+        </Container>
+      )}
+
       {activeView === "taxData" && (
         <Container>
           <Table striped bordered hover className="mt-4">
@@ -735,7 +825,6 @@ const fetchData = async () => {
           </Table>
         </Container>
       )}
-
       {/* --- Modals --- */}
    
 
@@ -815,6 +904,7 @@ const fetchData = async () => {
 
 
       {/* Add Stock Modal*/}
+      {showStockModal && (
       <Modal show={showStockModal} onHide={() => setShowStockModal(false)} dialogClassName="custom-modal modal-dialog-centered">
           <Form
               onSubmit={e => {
@@ -826,7 +916,6 @@ const fetchData = async () => {
           <Modal.Title className="text-uppercase">Add Stock</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-      
           <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Invoice Number</Form.Label>
               <Form.Control type="text" value={stockData.invoiceNumber} onChange={(e) => setStockData({ ...stockData, invoiceNumber: e.target.value })} />
@@ -852,7 +941,7 @@ const fetchData = async () => {
               <div className="d-flex align-items-center">
                 <Form.Select value={stockData.supplierId} onChange={(e) => setStockData({ ...stockData, supplierId: e.target.value })}>
                   <option value="">Select a supplier</option>
-                  {suppliers.map(supplier => (
+                  {supplierData.map(supplier => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.supplierName}
                     </option>
@@ -874,6 +963,58 @@ const fetchData = async () => {
         </Modal.Footer>
         </Form>
       </Modal>
+      )}
+
+      {/* invoice Modal*/}
+      {showInvoiceModal && (
+        
+        <Modal show={showInvoiceModal} onHide={() => setShowInvoiceModal(false)} dialogClassName="custom-modal modal-dialog-centered">
+          <Form
+              onSubmit={e => {
+                e.preventDefault();
+                handleAddInvoice();
+              }}
+            >
+        <Modal.Header closeButton>
+          <Modal.Title className="text-uppercase">Add Invoice</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+              <Form.Label className="fw-bold">Invoice Number</Form.Label>
+              <Form.Control type="text" value={invoices.invoiceId} onChange={(e) => setInvoices({ ...invoices, invoiceId: e.target.value })} />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold">Total Amount</Form.Label>
+              <Form.Control type="number" value={invoices.totalAmount} onChange={(e) => setInvoices({ ...invoices, totalAmount: e.target.value })} />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label className="fw-bold">Supplier</Form.Label>
+              <div className="d-flex align-items-center">
+                <Form.Select value={stockData.supplierId} onChange={(e) => setInvoices({ ...invoices, supplierId: e.target.value })}>
+                  <option value="">Select a supplier</option>
+                  {supplierData.map(supplier => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.supplierName}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Button variant="primary" className="ms-2" onClick={() => setShowSupplierModal(true)}>
+                  <i className="fas fa-plus"></i> +
+                </Button>
+              </div>
+            </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+            <Button type="button" variant="secondary" onClick={() => !isLoading && setShowInvoiceModal(false)}>
+              Close
+            </Button>
+            <Button type="submit" variant="primary" disabled={isLoading}>
+              {isLoading ? "Adding…" : "Add"}
+            </Button>
+        </Modal.Footer>
+        </Form>
+      </Modal>
+       )}
 
       {/* Add Supplier Modal (wide offset) */}
       <Modal show={showSupplierModal} onHide={() => !isLoading && setShowSupplierModal(false)} dialogClassName="custom-modal modal-dialog-centered">
@@ -926,7 +1067,7 @@ const fetchData = async () => {
                   >
                     <option value="">Select a product</option>
                     {products.map(prod => (
-                      <option key={prod.id} value={prod.id}>
+                      <option key={prod.id} value={prod.inventoryId}>
                         {prod.name}
                       </option>
                     ))}
@@ -1214,7 +1355,7 @@ const fetchData = async () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => !isLoading && setShowCategoryModal(false)}>Close</Button>
-          <Button variant="primary" onClick={handleAddCategory} disabled={isLoading}>
+          <Button variant="primary" onClick={(e) => handleAddCategory(e)} disabled={isLoading}>
             {isLoading ? "Adding..." : "Submit"}
           </Button>
         </Modal.Footer>
@@ -1255,7 +1396,7 @@ const fetchData = async () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={() => !isLoading && setShowSubCategoryModal(false)}>Close</Button>
-          <Button variant="primary" onClick={handleAddSubCategory} disabled={isLoading}>
+          <Button variant="primary" onClick={(e) => handleAddSubCategory(e)} disabled={isLoading}>
             {isLoading ? "Adding..." : "Submit"}
           </Button>
         </Modal.Footer>
@@ -1277,7 +1418,7 @@ const fetchData = async () => {
               >
                 <option value="">Select a product</option>
                 {products.map(product => (
-                  <option key={product.id} value={product.id}>
+                  <option key={product.id} value={product.inventoryId}>
                     {product.name}
                   </option>
                 ))}

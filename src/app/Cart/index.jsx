@@ -1,3 +1,5 @@
+// src/app/Cart/index.jsx
+
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
@@ -20,18 +22,17 @@ import Spinner from 'react-bootstrap/Spinner';
 import { removeItemFromCart, clearCart } from '../../redux/slices/cartSlice';
 import axios from 'axios';
 import { baseUrl } from '../../constants';
-const stripePromise = loadStripe('your-publishable-key-here');
-const googleMapsApiKey = "AIzaSyD-YPpUWHXNzvQjjXjqj7mvO2Idi72jREc";
 
+const stripePromise = loadStripe();
+
+// Card Element styling options
 const CARD_ELEMENT_OPTIONS = {
   style: {
     base: {
       color: '#32325d',
       fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
       fontSize: '16px',
-      '::placeholder': {
-        color: '#a0aec0',
-      },
+      '::placeholder': { color: '#a0aec0' },
       padding: '10px',
     },
     invalid: {
@@ -41,192 +42,183 @@ const CARD_ELEMENT_OPTIONS = {
   },
 };
 
+/**
+ * CheckoutForm
+ * Renders Stripe Card Elements and handles card-based checkout.
+ */
 function CheckoutForm({ onClose, finalAmount }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (!stripe || !elements) return;
-    setIsLoading(true);
 
-    const cardNumberElement = elements.getElement(CardNumberElement);
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
+    setIsLoading(true);
+    const cardEl = elements.getElement(CardNumberElement);
+    const { error } = await stripe.createPaymentMethod({
       type: 'card',
-      card: cardNumberElement,
+      card: cardEl,
     });
 
     if (error) {
       errorToast(error.message);
     } else {
-      successToast('Payment successful!');
-      console.log('[PaymentMethod]', paymentMethod);
+      successToast('Card payment successful!');
       onClose();
+      // TODO: Trigger server-side payment confirmation if required
     }
+
     setIsLoading(false);
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', marginBottom: '5px' }}>Card Number</label>
+      <div className="mb-3">
+        <label className="form-label">Card Number</label>
         <CardNumberElement options={CARD_ELEMENT_OPTIONS} />
       </div>
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Expiry Date</label>
+      <div className="d-flex gap-3 mb-3">
+        <div className="flex-fill">
+          <label className="form-label">Expiry</label>
           <CardExpiryElement options={CARD_ELEMENT_OPTIONS} />
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', marginBottom: '5px' }}>CVC</label>
+        <div className="flex-fill">
+          <label className="form-label">CVC</label>
           <CardCvcElement options={CARD_ELEMENT_OPTIONS} />
         </div>
       </div>
-      <h4>Total Amount: KSH {finalAmount.toFixed(2)}</h4>
-      <Button type="submit" className="mt-3 w-100" disabled={!stripe || isLoading}>
+      <h5>Total: KSH {finalAmount.toFixed(2)}</h5>
+      <Button type="submit" className="w-100" disabled={!stripe || isLoading}>
         {isLoading ? 'Processing...' : 'Pay Now'}
       </Button>
     </form>
   );
 }
 
-function Cart() {
+/**
+ * Cart
+ * Primary shopping cart component handling display, summary, and checkout workflows.
+ */
+export default function Cart() {
   const dispatch = useDispatch();
-  const cartItems = useSelector((state) => state.cart.items);
-  const products = useSelector((state) => state.products.products);
-  // We no longer rely solely on redux for the phone number;
-  // the user must now input it via the checkout modal.
-  // const phoneNumber = useSelector((state) => state.auth.user?.phone);
+  const cartItems = useSelector((s) => s.cart.items);
+  const products = useSelector((s) => s.products.products);
+  const user = useSelector((s) => s.auth.user);
 
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
-  const [isApiLoading, setIsApiLoading] = useState(false);
-  // New state variables for checkout form inputs:
-  const [checkoutPhone, setCheckoutPhone] = useState('');
-  const [checkoutKraPin, setCheckoutKraPin] = useState('');
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState('');
+  const [apiLoading, setApiLoading] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [kraPinInput, setKraPinInput] = useState('');
 
   const deliveryCost = 10;
-
-  // Merge cart items with product details, ensuring each fused item retains its original id.
-  const fusedCartItems = Object.values(cartItems).map((item) => {
-    const productData = products.find((prod) => prod.id === item.id) || {};
-    return { ...productData, quantity: item.quantity, id: item.id };
+  const fusedItems = Object.values(cartItems).map((item) => {
+    const product = products.find((p) => p.id === item.id) || {};
+    return { ...product, quantity: item.quantity, id: item.id };
   });
 
-  console.log('Fused Cart Items:', fusedCartItems);
-
-  const computedTotals = fusedCartItems.reduce(
+  // Calculate subtotal and VAT
+  const { subtotal, vatTotal } = fusedItems.reduce(
     (acc, item) => {
-      const quantity = item.quantity || 0;
-      const basePrice = item.price ? parseFloat(item.price) : 0;
-      const discountQuantity = item.discountQuantity ? parseFloat(item.discountQuantity) : Infinity;
-      const discountedPrice =
-        item.priceAfterDiscount === null || item.priceAfterDiscount === undefined
-          ? null
-          : parseFloat(item.priceAfterDiscount);
-      const effectivePrice =
-        discountedPrice === null ? basePrice : (quantity >= discountQuantity ? discountedPrice : basePrice);
-      const itemSubtotal = effectivePrice * quantity;
-      const taxRate = item.taxRate ? parseFloat(item.taxRate) : 0;
-      const itemVat = itemSubtotal * taxRate;
-      acc.subtotal += itemSubtotal;
-      acc.vat += itemVat;
+      const qty = item.quantity;
+      const price = parseFloat(item.price || 0);
+      const discountThreshold = parseFloat(item.discountQuantity ?? Infinity);
+      const discounted = item.priceAfterDiscount != null
+        ? parseFloat(item.priceAfterDiscount)
+        : null;
+      const unitPrice = discounted !== null && qty >= discountThreshold
+        ? discounted
+        : price;
+      const lineTotal = unitPrice * qty;
+      acc.subtotal += lineTotal;
+      acc.vatTotal += lineTotal * (parseFloat(item.taxRate) || 0);
       return acc;
     },
-    { subtotal: 0, vat: 0 }
+    { subtotal: 0, vatTotal: 0 }
   );
 
-  const subtotal = computedTotals.subtotal;
-  const vatTotal = computedTotals.vat;
   const finalCost = subtotal + vatTotal + deliveryCost;
+  const capExceeded = fusedItems.some(
+    (item) =>
+      item.purchaseCap != null && item.quantity > Number(item.purchaseCap)
+  );
 
-  const isAnyProductCapExceeded = fusedCartItems.some((item) => {
-    if (item.purchaseCap != null) {
-      return item.quantity > parseInt(item.purchaseCap);
+  /**
+   * handleNonCard
+   * Orchestrates MPesa / Airtel checkout with fallback to Nairobi CBD coordinates.
+   */
+  const handleNonCard = async (method) => {
+    if (!phoneInput.trim()) {
+      errorToast('Phone number is required.');
+      return;
     }
-    return false;
-  });
 
-  const handleCheckout = async (method) => {
-    // For the non-card methods
-    setSelectedPaymentMethod(method);
+    setSelectedMethod(method);
 
     if (method === 'mpesa') {
-      // Validate checkout phone number
-      if (!checkoutPhone.trim()) {
-        errorToast('Please enter your phone number.');
-        return;
-      }
-      successToast('Proceeding with Mpesa payment.');
-      setIsApiLoading(true);
+      setApiLoading(true);
 
-      let locationData;
+      // Default to Nairobi CBD on geolocation failure
+      let coords = { lat: -1.28333, lng: 36.81667 };
       try {
-        // Request location using Google Maps Geolocation API
-        const response = await axios.post(
-          `https://www.googleapis.com/geolocation/v1/geolocate?key=${googleMapsApiKey}`
+        const res = await axios.post(
+          `https://www.googleapis.com/geolocation/v1/geolocate?key=${process.env.REACT_APP_GOOGLE_MAPS_KEY}`
         );
-        locationData = response.data.location; // Expected structure: { lat, lng }
-        console.log('Location from Google API:', locationData);
-      } catch (error) {
-        errorToast('Failed to fetch location.');
-        console.error(error);
-        setIsApiLoading(false);
-        return;
+        coords = res.data.location;
+      } catch {
+        infoToast('Proceeding with default location (Nairobi CBD).');
       }
 
-      // Build the payload using input values and location
-      const orderPayload = {
-        buyerPin: checkoutKraPin.trim() ? checkoutKraPin.trim() : "N/A",
-        latitude: locationData.lat,
-        longitude: locationData.lng,
-        orderitems: fusedCartItems.map((item) => ({
-          productId: Number(item.id), // sent as number per your sample payload
-          quantity: item.quantity,
+      const payload = {
+        userId: user.phone,
+        phoneNumber: phoneInput.trim(),
+        buyerPin: kraPinInput.trim() || 'N/A',
+        latitude: coords.lat,
+        longitude: coords.lng,
+        orderItems: fusedItems.map((i) => ({
+          productId: Number(i.id),
+          quantity: i.quantity,
         })),
-        userId: checkoutPhone.trim(),
       };
 
-      console.log('Order Payload:', orderPayload);
-
       try {
-        const orderResponse = await axios.post(`${baseUrl}/order`, orderPayload);
-        successToast('Order created successfully.');
-        console.log('Order response:', orderResponse.data);
-      } catch (error) {
-        const errMsg =
-          error.response && error.response.data
-            ? error.response.data
-            : 'Failed to create order via Mpesa payment.';
-        errorToast(errMsg);
-        console.error(error);
+        await axios.post(`${baseUrl}/order`, payload);
+        successToast('Mpesa order successfully initiated.');
+      } catch (err) {
+        errorToast(err.response?.data || 'Mpesa payment failed.');
       } finally {
-        setIsApiLoading(false);
-        setShowCheckoutModal(false);
+        setApiLoading(false);
+        setShowCheckout(false);
       }
-    } else if (method === 'airtel') {
-      successToast('Proceeding with Airtel Money payment.');
-      setShowCheckoutModal(false);
-    } else if (method === 'visa') {
-      successToast('Proceeding with Visa/Mastercard payment.');
-      // The card payment modal will appear.
+    }
+
+    if (method === 'airtel') {
+      successToast('Airtel Money flow started.');
+      setShowCheckout(false);
+      // TODO: Implement Airtel API integration
     }
   };
 
-  const handleProceedToCheckout = () => {
-    if (isAnyProductCapExceeded) {
-      errorToast('One or more products exceed their purchase limit.');
-    } else {
-      setShowCheckoutModal(true);
+  /**
+   * initiateCheckout
+   * Validates purchase caps then displays the summary modal.
+   */
+  const initiateCheckout = () => {
+    if (capExceeded) {
+      errorToast('One or more items exceed their purchase limit.');
+      return;
     }
+    setShowCheckout(true);
   };
 
   return (
-    <div>
+    <>
       <Nav />
-      <div className="container mt-4 pb-5 h-100">
-        <div className="d-flex justify-content-between align-items-center mb-3">
+
+      <div className="container mt-4 pb-5">
+        <div className="d-flex justify-content-between mb-3">
           <h3>Shopping Cart</h3>
           <button
             className="btn btn-danger btn-sm"
@@ -238,104 +230,101 @@ function Cart() {
             Clear Cart
           </button>
         </div>
-        {fusedCartItems.length === 0 ? (
-          errorToast('Your cart is empty.')
+
+        {fusedItems.length === 0 ? (
+          <p>Your cart is empty.</p>
         ) : (
-          <div>
-            {fusedCartItems.map((item, index) => {
-              const quantity = item.quantity || 0;
-              const basePrice = item.price ? parseFloat(item.price) : 0;
-              const discountQuantity = item.discountQuantity ? parseFloat(item.discountQuantity) : Infinity;
-              const discountedPrice =
-                item.priceAfterDiscount === null || item.priceAfterDiscount === undefined
-                  ? null
-                  : parseFloat(item.priceAfterDiscount);
-              const effectivePrice =
-                discountedPrice === null ? basePrice : (quantity >= discountQuantity ? discountedPrice : basePrice);
-              const itemSubtotal = effectivePrice * quantity;
-              const taxRate = item.taxRate ? parseFloat(item.taxRate) : 0;
-              const itemVat = itemSubtotal * taxRate;
-              const totalWithVat = itemSubtotal + itemVat;
-              const productName = item.name || item.Name || 'Unnamed Product';
-              const productImage =
-                item.productimages && item.productimages.length > 0
-                  ? item.productimages[0]
-                  : item.Image || item.image || '';
+          <>
+            {fusedItems.map((item) => {
+              const qty = item.quantity;
+              const base = parseFloat(item.price);
+              const threshold = parseFloat(item.discountQuantity ?? Infinity);
+              const discounted = item.priceAfterDiscount != null
+                ? parseFloat(item.priceAfterDiscount)
+                : null;
+              const unitPrice = discounted !== null && qty >= threshold
+                ? discounted
+                : base;
+              const lineTotal = unitPrice * qty;
+              const vatAmount = lineTotal * (parseFloat(item.taxRate) || 0);
+
               return (
-                <div key={index} className="d-flex justify-content-between align-items-start mb-3 p-3 border">
+                <div
+                  key={item.id}
+                  className="d-flex justify-content-between align-items-center p-3 border mb-3"
+                >
                   <div>
-                    <h5>{productName}</h5>
-                    <p>
-                      Unit Price: KSH {effectivePrice.toFixed(2)}
-                      {quantity >= discountQuantity && discountedPrice != null && (
-                        <span className="text-success ms-2">(Discount Applied)</span>
-                      )}
-                    </p>
-                    <p>Quantity: {quantity}</p>
+                    <h5>{item.name || 'Unnamed Product'}</h5>
+                    <p>Unit Price: KSH {unitPrice.toFixed(2)}</p>
+                    <p>Quantity: {qty}</p>
                     {item.purchaseCap && (
-                      <p>
-                        Purchase Limit: {item.purchaseCap}{' '}
-                        {quantity > parseInt(item.purchaseCap) && (
-                          <span className="text-danger">(Exceeded!)</span>
-                        )}
-                      </p>
+                      <p>Purchase Cap: {item.purchaseCap}</p>
                     )}
-                    <p>Subtotal: KSH {itemSubtotal.toFixed(2)}</p>
-                    <p>VAT: KSH {itemVat.toFixed(2)}</p>
                     <p>
-                      <strong>Total (incl. VAT): KSH {totalWithVat.toFixed(2)}</strong>
+                      Total (incl. VAT): KSH {(lineTotal + vatAmount).toFixed(2)}
                     </p>
                     <button
-                      className="btn btn-sm btn-outline-danger"
+                      className="btn btn-outline-danger btn-sm"
                       onClick={() => {
                         dispatch(removeItemFromCart(item.id));
-                        infoToast(`${productName} removed from cart.`);
+                        infoToast(`${item.name} removed.`);
                       }}
                     >
                       Remove
                     </button>
                   </div>
-                  <div>
-                    {productImage && (
-                      <img
-                        src={productImage}
-                        alt={productName}
-                        style={{ width: '80px', height: '80px', objectFit: 'cover' }}
-                      />
-                    )}
-                  </div>
+                  {item.productimages?.[0] && (
+                    <img
+                      src={item.productimages[0]}
+                      alt={item.name}
+                      style={{ width: 80, height: 80, objectFit: 'cover' }}
+                    />
+                  )}
                 </div>
               );
             })}
+
             <div className="mt-4">
-              <h4>Subtotal: KSH {subtotal.toFixed(2)}</h4>
-              <h4>VAT Total: KSH {vatTotal.toFixed(2)}</h4>
-              <h4>Delivery Cost: KSH {deliveryCost.toFixed(2)}</h4>
+              <h5>Subtotal: KSH {subtotal.toFixed(2)}</h5>
+              <h5>VAT Total: KSH {vatTotal.toFixed(2)}</h5>
+              <h5>Delivery Cost: KSH {deliveryCost.toFixed(2)}</h5>
               <h4>Final Cost: KSH {finalCost.toFixed(2)}</h4>
-              <div className="mt-4">
+
+              <div className="mt-3">
                 <Link to="/home">
-                  <button className="btn btn-secondary me-3" onClick={() => infoToast('Back to Shopping')}>
+                  <button
+                    className="btn btn-secondary me-2"
+                    onClick={() => infoToast('Back to shopping')}
+                  >
                     Back to Shopping
                   </button>
                 </Link>
-                <button className="btn btn-primary" onClick={handleProceedToCheckout}>
+                <button
+                  className="btn btn-primary"
+                  onClick={initiateCheckout}
+                >
                   Proceed to Checkout
                 </button>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
       {/* Checkout Summary Modal */}
-      <Modal show={showCheckoutModal} onHide={() => setShowCheckoutModal(false)} centered size="lg">
+      <Modal
+        show={showCheckout}
+        onHide={() => setShowCheckout(false)}
+        centered
+        size="lg"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Checkout Summary</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="mb-3">
-            <h5>Enter your details</h5>
-            <div className="mb-2">
+          <div className="mb-4">
+            <h5>Enter Your Details</h5>
+            <div className="mb-3">
               <label className="form-label">
                 Phone Number <span className="text-danger">*</span>
               </label>
@@ -343,112 +332,122 @@ function Cart() {
                 type="text"
                 className="form-control"
                 placeholder="Enter your phone number"
-                value={checkoutPhone}
-                onChange={(e) => setCheckoutPhone(e.target.value)}
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
               />
             </div>
-            <div className="mb-3">
+            <div className="mb-4">
               <label className="form-label">KRA Tax Pin (Optional)</label>
               <input
                 type="text"
                 className="form-control"
                 placeholder="Enter your KRA Tax Pin"
-                value={checkoutKraPin}
-                onChange={(e) => setCheckoutKraPin(e.target.value)}
+                value={kraPinInput}
+                onChange={(e) => setKraPinInput(e.target.value)}
               />
             </div>
           </div>
 
-          {fusedCartItems.length === 0 ? (
-            <p>Your cart is empty.</p>
-          ) : (
-            <div>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Quantity</th>
-                    <th>Unit Price</th>
-                    <th>Subtotal</th>
-                    <th>VAT</th>
-                    <th>Total (incl. VAT)</th>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Subtotal</th>
+                <th>VAT</th>
+                <th>Total (incl. VAT)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fusedItems.map((item, idx) => {
+                const qty = item.quantity;
+                const base = parseFloat(item.price);
+                const threshold = parseFloat(item.discountQuantity ?? Infinity);
+                const discounted = item.priceAfterDiscount != null
+                  ? parseFloat(item.priceAfterDiscount)
+                  : null;
+                const unit = discounted !== null && qty >= threshold
+                  ? discounted
+                  : base;
+                const sub = unit * qty;
+                const vat = sub * (parseFloat(item.taxRate) || 0);
+                return (
+                  <tr key={idx}>
+                    <td>{item.name}</td>
+                    <td>{qty}</td>
+                    <td>KSH {unit.toFixed(2)}</td>
+                    <td>KSH {sub.toFixed(2)}</td>
+                    <td>KSH {vat.toFixed(2)}</td>
+                    <td>KSH {(sub + vat).toFixed(2)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {fusedCartItems.map((item, index) => {
-                    const quantity = item.quantity || 0;
-                    const basePrice = item.price ? parseFloat(item.price) : 0;
-                    const discountQuantity = item.discountQuantity ? parseFloat(item.discountQuantity) : Infinity;
-                    const discountedPrice =
-                      item.priceAfterDiscount === null || item.priceAfterDiscount === undefined
-                        ? null
-                        : parseFloat(item.priceAfterDiscount);
-                    const effectivePrice =
-                      discountedPrice === null ? basePrice : (quantity >= discountQuantity ? discountedPrice : basePrice);
-                    const itemSubtotal = effectivePrice * quantity;
-                    const taxRate = item.taxRate ? parseFloat(item.taxRate) : 0;
-                    const itemVat = itemSubtotal * taxRate;
-                    const totalWithVat = itemSubtotal + itemVat;
-                    const productName = item.name || item.Name || 'Unnamed Product';
-                    return (
-                      <tr key={index}>
-                        <td>{productName}</td>
-                        <td>{quantity}</td>
-                        <td>KSH {effectivePrice.toFixed(2)}</td>
-                        <td>KSH {itemSubtotal.toFixed(2)}</td>
-                        <td>KSH {itemVat.toFixed(2)}</td>
-                        <td>KSH {totalWithVat.toFixed(2)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              <div className="mt-3">
-                <h5>Summary</h5>
-                <p>Subtotal: KSH {subtotal.toFixed(2)}</p>
-                <p>VAT Total: KSH {vatTotal.toFixed(2)}</p>
-                <p>Delivery Cost: KSH {deliveryCost.toFixed(2)}</p>
-                <p>
-                  <strong>Final Cost: KSH {finalCost.toFixed(2)}</strong>
-                </p>
-              </div>
-              <div className="mt-4 d-flex flex-column">
-                <button className="btn btn-success mb-2" onClick={() => handleCheckout('mpesa')}>
-                  Pay via Mpesa
-                </button>
-                <button className="btn btn-danger mb-2" onClick={() => handleCheckout('airtel')}>
-                  Pay via Airtel Money
-                </button>
-                <button className="btn btn-primary mb-2" onClick={() => handleCheckout('visa')}>
-                  Pay via Visa/Mastercard
-                </button>
-              </div>
-            </div>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="mt-3">
+            <h5>Summary</h5>
+            <p>Subtotal: KSH {subtotal.toFixed(2)}</p>
+            <p>VAT Total: KSH {vatTotal.toFixed(2)}</p>
+            <p>Delivery Cost: KSH {deliveryCost.toFixed(2)}</p>
+            <p>
+              <strong>Final Cost: KSH {finalCost.toFixed(2)}</strong>
+            </p>
+          </div>
+
+          <div className="mt-4 d-flex flex-column">
+            <Button
+              variant="success"
+              className="mb-2"
+              onClick={() => handleNonCard('mpesa')}
+            >
+              Pay via Mpesa
+            </Button>
+            <Button
+              variant="danger"
+              className="mb-2"
+              onClick={() => handleNonCard('airtel')}
+            >
+              Pay via Airtel Money
+            </Button>
+            <Button
+              variant="primary"
+              className="mb-2"
+              onClick={() => setSelectedMethod('visa')}
+            >
+              Pay via Visa/Mastercard
+            </Button>
+          </div>
         </Modal.Body>
       </Modal>
 
-      {/* Card Payment Modal for Visa/Mastercard */}
-      <Modal show={selectedPaymentMethod === 'visa'} onHide={() => setSelectedPaymentMethod('')} centered>
+      {/* Card Payment Modal */}
+      <Modal
+        show={selectedMethod === 'visa'}
+        onHide={() => setSelectedMethod('')}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>Card Payment</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Elements stripe={stripePromise}>
-            <CheckoutForm onClose={() => setSelectedPaymentMethod('')} finalAmount={finalCost} />
+            <CheckoutForm
+              onClose={() => setSelectedMethod('')}
+              finalAmount={finalCost}
+            />
           </Elements>
         </Modal.Body>
       </Modal>
 
-      {/* API Loading Spinner Modal */}
-      <Modal show={isApiLoading} centered backdrop="static" keyboard={false}>
+      {/* API Loading Spinner */}
+      <Modal show={apiLoading} backdrop="static" keyboard={false} centered>
         <Modal.Body className="text-center">
-          <Spinner animation="border" role="status" />
-          <p className="mt-3">Processing your request...</p>
+          <Spinner animation="border" />
+          <p className="mt-2">Processing your request...</p>
         </Modal.Body>
       </Modal>
-    </div>
+    </>
   );
 }
-
-export default Cart;

@@ -113,6 +113,7 @@ const productsSlice = createSlice({
     builder.addCase(fetchProducts.fulfilled, (state, action) => {
       state.loading = false;
       state.products = action.payload;
+      console.log("Fetched products:", state.products);
     });
     builder.addCase(fetchProducts.rejected, (state, action) => {
       state.loading = false;
