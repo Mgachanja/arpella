@@ -14,7 +14,7 @@ import {
 } from "react-bootstrap";
 import axios from "axios";
 import {baseUrl} from "../../constants";
-import { Backdrop, CircularProgress} from "@mui/material";
+import { Backdrop, Box, CircularProgress} from "@mui/material";
 import { fetchProducts } from "../../redux/slices/productsSlice";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
@@ -199,7 +199,7 @@ const fetchData = async () => {
       setIsLoading(true);
       const { productId, stockQuantity, stockThreshold, stockPrice, supplierId, invoiceNumber } = stockData;
       if (!productId || !stockQuantity || !stockThreshold || !stockPrice || !supplierId || !invoiceNumber) {
-        throw new Error("All fields are required");
+        showToastMessage("All fields are required" , "danger");
       }
       await axios.post(`${baseUrl}/inventory`, { ...stockData }, {
         headers: { "Content-Type": "application/json" }
@@ -578,19 +578,21 @@ const fetchData = async () => {
         {activeView === "stocks" && <h4>Stocks</h4>}
         {activeView === "products" && <h4>Products</h4>}
         {activeView === "suppliers" && <h4>Suppliers</h4>}
+        {activeView === "invoice" && <h4>Invoices</h4>}
       </Container>
 
       {/* Main Content */}
       {activeView === "stocks" && (
         <Container>
             {/* Stocks action buttons */}
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={setShowStockModal}>add stock</Button> 
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchSuppliers}>View Suppliers</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchInvoices}>View Invoices</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
-
+            <Box sx={{display: 'flex',flexWrap: 'wrap',gap: 2, mb: 2,}}>
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={setShowStockModal}>add stock</Button> 
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchSuppliers}>View Suppliers</Button>
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchInvoices}>View Invoices</Button>
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+            </Box>
           
 
           <Table striped bordered hover className="mt-4">
@@ -637,11 +639,12 @@ const fetchData = async () => {
       )}
       {activeView === "products" && (
         <Container>
-           <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowProductModal(true)}>Add Product</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowImageUploadModal(true)}>Upload Product Image</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowProductsExcelModal(true)}>Upload Products Excel</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowTaxModal(true)}>Add Product Tax Data</Button>
-
+         <Box sx={{display: 'flex',flexWrap: 'wrap',gap: 2, mb: 2,}}>
+           <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowProductModal(true)}>Add Product</Button>
+            <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowImageUploadModal(true)}>Upload Product Image</Button>
+            <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowProductsExcelModal(true)}>Upload Products Excel</Button>
+            <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowTaxModal(true)}>Add Product Tax Data</Button>
+          </Box>
           <Table striped bordered hover className="mt-4">
             <thead>
               <tr>
@@ -682,13 +685,14 @@ const fetchData = async () => {
       )}
       {activeView === "suppliers" && (
         <Container>
-
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={setShowStockModal}>add stock</Button> 
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchSuppliers}>View Suppliers</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchInvoices}>View Invoices</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+            <Box sx={{display: 'flex',flexWrap: 'wrap',gap: 2, mb: 2,}}>
+              <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={setShowStockModal}>add stock</Button> 
+              <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchSuppliers}>View Suppliers</Button>
+              <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
+              <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
+              <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchInvoices}>View Invoices</Button>
+              <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+            </Box>
           <Table striped bordered hover className="mt-4">
             <thead>
               <tr>
@@ -731,13 +735,14 @@ const fetchData = async () => {
       )}
       {activeView === "invoice" && (
         <Container>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={setShowStockModal}>add stock</Button> 
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchSuppliers}>View Suppliers</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={fetchInvoices}>View Invoices</Button>
-            <Button variant="contained" sx={{ mr:1, mb:2 }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
-
+            <Box sx={{display: 'flex',flexWrap: 'wrap',gap: 2, mb: 2,}}>
+           <Button  sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={setShowStockModal}>add stock</Button> 
+            <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchSuppliers}>View Suppliers</Button>
+            <Button sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
+            <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
+            <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchInvoices}>View Invoices</Button>
+            <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+            </Box>
           <Table striped bordered hover className="mt-4">
             <thead>
               <tr>
@@ -916,9 +921,21 @@ const fetchData = async () => {
           <Modal.Title className="text-uppercase">Add Stock</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Group className="mb-3">
+            <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Invoice Number</Form.Label>
-              <Form.Control type="text" value={stockData.invoiceNumber} onChange={(e) => setStockData({ ...stockData, invoiceNumber: e.target.value })} />
+              <div className="d-flex align-items-center">
+                <Form.Select value={invoices.invoiceId} onChange={(e) => setStockData({ ...stockData, invoiceNumber: e.target.value })}>
+                  <option value="">Select the invoice</option>
+                  {invoices.map(inv => (
+                    <option key={inv.invoiceId} value={inv.invoiceId}>
+                      {inv.invoiceId}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Button variant="primary" className="ms-2" onClick={() => setShowSupplierModal(true)}>
+                  <i className="fas fa-plus"></i> +
+                </Button>
+              </div>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Product </Form.Label>
@@ -967,7 +984,6 @@ const fetchData = async () => {
 
       {/* invoice Modal*/}
       {showInvoiceModal && (
-        
         <Modal show={showInvoiceModal} onHide={() => setShowInvoiceModal(false)} dialogClassName="custom-modal modal-dialog-centered">
           <Form
               onSubmit={e => {
