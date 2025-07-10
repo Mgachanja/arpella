@@ -7,14 +7,14 @@ import {
   Modal,
   Form,
   Table,
-  Toast,
-  ToastContainer,
   Row,
   Col
 } from "react-bootstrap";
+import { toast } from "react-toastify";
 import axios from "axios";
 import {baseUrl} from "../../constants";
-import { Backdrop, Box, CircularProgress} from "@mui/material";
+import { Backdrop, Box, CircularProgress ,Delete} from "@mui/material";
+import { FaPencilAlt , FaTrash } from "react-icons/fa";
 import { fetchProducts } from "../../redux/slices/productsSlice";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
@@ -30,6 +30,7 @@ const StockManagement = () => {
   const [showEditStockModal, setShowEditStockModal] = useState(false);
   const [showTaxModal,setShowTaxModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
   // Toast and loading states
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -87,6 +88,7 @@ const StockManagement = () => {
   const [products, setProducts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [editingSupplier, setEditingSupplier] = useState({ id: null, supplierName: "", kraPin: "" });
 
 
   // Ref and API base URL
@@ -187,10 +189,24 @@ const fetchData = async () => {
   });
 
   // Toast notification function
-  const showToastMessage = (message, variant = "success") => {
-    setToastMessage(message);
-    setToastVariant(variant);
-    setShowToast(true);
+  const showToastMessage = (message, variant ) => {
+   switch (variant) {
+    case "success":
+      toast.success(message);
+      break;
+    case "error":
+    case "danger":
+      toast.error(message);
+      break;
+    case "info":
+      toast.info(message);
+      break;
+    case "warning":
+      toast.warn(message);
+      break;
+    default:
+      toast(message);
+  }
   };
 
   // Handle adding new stock
@@ -534,6 +550,47 @@ const fetchData = async () => {
     }
   };
 
+  const handleEditSupplier = (id) => {
+  const supplier = supplierData.find(s => s.id === id);
+  if (supplier) {
+    setEditingSupplier(supplier);
+    setShowEditSupplierModal(true);
+  }
+};
+
+  const handleDeleteSupplier = async (id) => {
+    try {
+      setIsLoading(true);
+      await axios.delete(`${baseUrl}/supplier/${id}`)
+      showToastMessage("Supplier deleted successfully");
+    } catch (error) {
+      console.error(error);
+    }finally{
+      fetchSuppliers();
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateSupplier = async () => {
+    try {
+      console.log(supplierData);
+      await axios.put(`${baseUrl}/supplier/${editingSupplier.id}`, {
+      supplierName: editingSupplier.supplierName,
+      kraPin: editingSupplier.kraPin
+    });
+      fetchSuppliers();
+      showToastMessage("Supplier updated successfully", "success");
+    } catch (error) {
+      console.ferror(error);
+      showToastMessage("Failed to update supplier", "danger");
+    }finally{
+      setShowEditSupplierModal(false);
+      setIsLoading(false);
+
+    }
+
+  };
+
   return (
     <div>
       {/* Custom CSS for modal offsets and nav styling */}
@@ -718,13 +775,22 @@ const fetchData = async () => {
                     <td>{supplier.supplierName}</td>
                     <td>{supplier.kraPin}</td>
                     <td>
+                    <Box sx={{ display: 'flex', gap: 2 }}>
                       <Button
                         variant="outline-primary"
                         size="sm"
-                        href={`${baseUrl}/suppliers/${supplier.id}`}
+                        onClick={() => handleEditSupplier(supplier.id)}
                       >
-                        Edit
+                        <FaPencilAlt/>
                       </Button>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => handleDeleteSupplier(supplier.id)}
+                      >
+                        <FaTrash/>
+                      </Button>
+                    </Box>
                     </td>
                   </tr>
                 ))
@@ -736,7 +802,7 @@ const fetchData = async () => {
       {activeView === "invoice" && (
         <Container>
             <Box sx={{display: 'flex',flexWrap: 'wrap',gap: 2, mb: 2,}}>
-           <Button  sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={setShowStockModal}>add stock</Button> 
+           <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={setShowStockModal}>add stock</Button> 
             <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchSuppliers}>View Suppliers</Button>
             <Button sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowSupplierModal(true)}>Add Supplier</Button>
             <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
@@ -1031,6 +1097,52 @@ const fetchData = async () => {
         </Form>
       </Modal>
        )}
+
+      {/* edit Supplier data  Modal */} 
+      <Modal
+        show={showEditSupplierModal}
+        onHide={() => setShowEditSupplierModal(false)}
+        dialogClassName="custom-modal modal-dialog-centered"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Supplier</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Supplier Name</Form.Label>
+              <Form.Control
+                type="text"
+                value={editingSupplier.supplierName}
+                onChange={e =>
+                  setEditingSupplier({ ...editingSupplier, supplierName: e.target.value })
+                }
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>KRA PIN</Form.Label>
+              <Form.Control
+                type="text"
+                value={editingSupplier.kraPin}
+                onChange={e =>
+                  setEditingSupplier({ ...editingSupplier, kraPin: e.target.value })
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowEditSupplierModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={() => handleUpdateSupplier(editingSupplier.id)}>
+            Save Changes
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
 
       {/* Add Supplier Modal (wide offset) */}
       <Modal show={showSupplierModal} onHide={() => !isLoading && setShowSupplierModal(false)} dialogClassName="custom-modal modal-dialog-centered">

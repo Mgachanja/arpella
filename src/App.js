@@ -25,7 +25,7 @@ function App() {
         <div className="bg-custom">
           <Router>
             <div>
-              <ToastContainer />
+              <ToastContainer  autoClose={3000} />
               <Routes>
                 <Route path="/" element={<Registration />} />
                 <Route path="/login" element={<Login />} />
