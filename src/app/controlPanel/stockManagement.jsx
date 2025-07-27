@@ -32,14 +32,38 @@ const StockManagement = () => {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
   // Toast and loading states
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastVariant, setToastVariant] = useState("success");
   const [isLoading, setIsLoading] = useState(false);
+  const [stocks, setStocks] = useState([]);
+
+  const [stockMeta, setStockMeta] = useState({
+  invoiceNumber: '',
+  supplierId: ''
+});
+
+const [stockEntries, setStockEntries] = useState([
+  { productId: '', stockQuantity: '', stockThreshold: '', stockPrice: '' }
+]);
+
+const addStockRow = () => {
+  setStockEntries([...stockEntries, { productId: '', stockQuantity: '', stockThreshold: '', stockPrice: '' }]);
+};
+
+const removeStockRow = (index) => {
+  const updated = [...stockEntries];
+  updated.splice(index, 1);
+  setStockEntries(updated);
+};
+
+const updateEntry = (index, field, value) => {
+  const updated = [...stockEntries];
+  updated[index][field] = value;
+  setStockEntries(updated);
+};
+
   
 
   // Active view for main content ("stocks", "products", or "suppliers")
-  const [activeView, setActiveView] = useState("stocks");
+  const [activeView, setActiveView] = useState(" ");
 
   // Form states
   const [taxData,setTaxData] = useState({
@@ -80,6 +104,14 @@ const StockManagement = () => {
   });
   const [supplierData, setSupplierData] = useState([]);
   const [editStockData, setEditStockData] = useState(null);
+const [restockMeta, setRestockMeta] = useState({
+  invoiceNumber: "",
+  supplierId: "",
+});
+
+const [restockEntries, setRestockEntries] = useState([
+  { productId: "", restockQuantity: "", purchasePrice: "" },
+]);
 
   // Data arrays
   const [inventories, setInventories] = useState([]);
@@ -90,7 +122,19 @@ const StockManagement = () => {
   const [invoices, setInvoices] = useState([]);
   const [editingSupplier, setEditingSupplier] = useState({ id: null, supplierName: "", kraPin: "" });
 
-
+  const resetRestockForm = () => {
+  setRestockData({
+    supplierId: "",
+    invoiceNumber: "",
+    restocks: [
+      {
+        productId: "",
+        restockQuantity: "",
+        purchasePrice: "",
+      },
+    ],
+  });
+};
   // Ref and API base URL
   const fileInputRef = useRef(null);
 
@@ -101,6 +145,7 @@ const StockManagement = () => {
   useEffect(() => {
     fetchData();
     fetchProducts()
+    setActiveView("stocks");
   }, []);
 
   // Fetch inventories, categories, subcategories, and products
@@ -211,26 +256,38 @@ const fetchData = async () => {
 
   // Handle adding new stock
   const handleAddStock = async () => {
+    if (!stockMeta.invoiceNumber || !stockMeta.supplierId) {
+      toast.error("Invoice number and supplier are required.");
+      return;
+    }
+
     try {
       setIsLoading(true);
-      const { productId, stockQuantity, stockThreshold, stockPrice, supplierId, invoiceNumber } = stockData;
-      if (!productId || !stockQuantity || !stockThreshold || !stockPrice || !supplierId || !invoiceNumber) {
-        showToastMessage("All fields are required" , "danger");
+
+      for (let entry of stockEntries) {
+        const payload = {
+          invoiceNumber: stockMeta.invoiceNumber,
+          supplierId: stockMeta.supplierId,
+          productId: entry.productId,
+          stockQuantity: entry.stockQuantity,
+          stockThreshold: entry.stockThreshold,
+          stockPrice: entry.stockPrice,
+        };
+
+        const res = await axios.post(`${baseUrl}/inventory`, payload, {
+         
+        });
+
+        if (res.status !== 201 && res.status !== 200) {
+          throw new Error(`Failed to add stock for product ID ${entry.productId}`);
+        }
       }
-      await axios.post(`${baseUrl}/inventory`, { ...stockData }, {
-        headers: { "Content-Type": "application/json" }
-      });
-      showToastMessage("Stock added successfully");
+
+      toast.success("Stock added successfully.");
       setShowStockModal(false);
-      resetForms();
-        
-      const invRes = await axios.get(`${baseUrl}/inventories`, {
-        headers: { "Content-Type": "application/json" }
-      });
-    setInventories(Array.isArray(invRes.data) ? invRes.data : []);
-    
     } catch (error) {
-      showToastMessage("Failed to add stock: " + (error.response?.data?.message || error.message), "danger");
+      console.error("Error adding stock:", error);
+      toast.error("Failed to add one or more stock items.");
     } finally {
       setIsLoading(false);
     }
@@ -515,8 +572,6 @@ const fetchData = async () => {
   };
 
   useEffect(() => {
-    fetchSuppliers();
-    fetchInvoices();
     fetchTaxData();
   }, []);
 
@@ -539,16 +594,63 @@ const fetchData = async () => {
     setIsLoading(false);
  }
 
+ const updateRestockEntry = (index, field, value) => {
+  const updated = [...restockEntries];
+  updated[index][field] = value;
+  setRestockEntries(updated);
+};
 
-  const handleAddRestock = async () => {
-    setShowRestockModal(false);
+const removeRestockEntry = (index) => {
+  const updated = [...restockEntries];
+  updated.splice(index, 1);
+  setRestockEntries(updated);
+};
+
+const addRestockEntry = () => {
+  setRestockEntries([
+    ...restockEntries,
+    { productId: "", restockQuantity: "", purchasePrice: "" },
+  ]);
+};
+
+
+
+ const handleAddRestock = async () => {
+  if (!restockMeta.invoiceNumber || !restockMeta.supplierId) {
+    toast.error("Supplier and invoice are required.");
+    return;
+  }
+
+  try {
     setIsLoading(true);
-    try {
-      await axios.post(`${baseUrl}/restocks`, restockData);
-    } finally {
-      setIsLoading(false);
+
+    for (const entry of restockEntries) {
+      const payload = {
+        invoiceNumber: restockMeta.invoiceNumber,
+        supplierId: restockMeta.supplierId,
+        productId: entry.productId,
+        restockQuantity: entry.restockQuantity,
+        purchasePrice: entry.purchasePrice,
+      };
+
+      const res = await axios.post(`${baseUrl}/restock-log`, payload);
+
+      if (res.status !== 200 && res.status !== 201) {
+        throw new Error("Failed to add some restock entries.");
+      }
     }
-  };
+
+    toast.success("All restock entries added.");
+    setShowRestockModal(false);
+    resetRestockForm();
+  } catch (error) {
+    console.error(error);
+    toast.error("An error occurred while saving restocks.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const handleEditSupplier = (id) => {
   const supplier = supplierData.find(s => s.id === id);
@@ -900,73 +1002,144 @@ const fetchData = async () => {
    
 
       {/* ——— Add Restock Data Modal ——— */}
-      <Modal show={showRestockModal} onHide={()=>setShowRestockModal(false)} size="lg" centered>
-        <Modal.Header closeButton><Modal.Title>Add Restock Data</Modal.Title></Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Row className="mb-3">
-              <Col>
-                <Form.Label>Product</Form.Label>
-                <Form.Select
-                  value={restockData.productId}
-                  onChange={e=>setRestockData({...restockData,productId:e.target.value})}
-                >
-                  <option value="">Select product</option>
-                  {inventories.map(i=>(
-                    <option key={i.productId} value={i.productId}>{i.productId}</option>
+    <Modal
+      show={showRestockModal}
+      onHide={() => setShowRestockModal(false)}
+      size="lg"
+      centered
+    >
+      <Modal.Header closeButton>
+        <Modal.Title>Add Restock Data</Modal.Title>
+      </Modal.Header>
+
+      <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+        <Form>
+          {/* Supplier & Invoice Info */}
+          <Row className="mb-3">
+            <Col>
+              <Form.Label>Supplier</Form.Label>
+              <Form.Select
+                value={restockMeta.supplierId}
+                onChange={(e) =>
+                  setRestockMeta({ ...restockMeta, supplierId: e.target.value })
+                }
+              >
+                <option value="">Select supplier</option>
+                {supplierData.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.supplierName}
+                    </option>
                   ))}
-                </Form.Select>
-              </Col>
-              <Col>
-                <Form.Label>Supplier</Form.Label>
-                <Form.Select
-                  value={restockData.supplierId}
-                  onChange={e=>setRestockData({...restockData,supplierId:e.target.value})}
-                >
-                  <option value="">Select supplier</option>
-                  {suppliers.map(s=>(
-                    <option key={s.id} value={s.id}>{s.supplierName}</option>
+              </Form.Select>
+            </Col>
+
+            <Col>
+              <Form.Label>Invoice</Form.Label>
+              <Form.Select
+                value={restockMeta.invoiceNumber}
+                onChange={(e) =>
+                  setRestockMeta({
+                    ...restockMeta,
+                    invoiceNumber: e.target.value,
+                  })
+                }
+              >
+                <option value="">Select the invoice</option>
+                  {invoices.map((inv) => (
+                    <option key={inv.invoiceId} value={inv.invoiceId}>
+                      {inv.invoiceId}
+                    </option>
                   ))}
-                </Form.Select>
-              </Col>
-            </Row>
-            <Row className="mb-3">
-              <Col>
-                <Form.Label>Invoice</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={restockData.invoiceNumber}
-                  onChange={e=>setRestockData({...restockData,invoiceNumber:e.target.value})}
-                />
-              </Col>
-              <Col>
-                <Form.Label>Quantity</Form.Label>
-                <Form.Control 
-                  type="number"
-                  value={restockData.quantity}
-                  onChange={e=>setRestockData({...restockData,restockQuantity:e.target.value})}
-                />
-              </Col>
-            </Row>
-            <Row className="mb-3">
-              <Col>
-                <Form.Label>Purchase Price</Form.Label>
-                <Form.Control 
-                  type="number"
-                  value={restockData.purchasePrice}
-                  onChange={e=>setRestockData({...restockData,purchasePrice:e.target.value})}
-                />
-              </Col>
-            </Row>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outlined" onClick={()=>setShowRestockModal(false)}>Close</Button>
-          <Button variant="contained" onClick={handleAddRestock} disabled={isLoading}>
-            {isLoading ? "Saving…" : "Save Restock"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+              </Form.Select>
+            </Col>
+          </Row>
+
+          {/* Restock Product Entries */}
+          {restockEntries.map((entry, index) => (
+            <div
+              key={index}
+              style={{
+                marginBottom: 24,
+                padding: 16,
+                border: "1px solid #ccc",
+                borderRadius: 8,
+                backgroundColor: "#f9f9f9",
+              }}
+            >
+              <Row className="mb-3">
+                <Col>
+                  <Form.Label>Product</Form.Label>
+                  <Form.Select
+                    value={entry.productId}
+                    onChange={(e) =>
+                      updateRestockEntry(index, "productId", e.target.value)
+                    }
+                  >
+                    <option value="">Select product</option>
+                    {inventories.map((i) => (
+                      <option key={i.productId} value={i.productId}>
+                        {i.productId}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Col>
+
+                <Col>
+                  <Form.Label>Quantity</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={entry.restockQuantity}
+                    onChange={(e) =>
+                      updateRestockEntry(index, "restockQuantity", e.target.value)
+                    }
+                  />
+                </Col>
+
+                <Col>
+                  <Form.Label>Purchase Price</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={entry.purchasePrice}
+                    onChange={(e) =>
+                      updateRestockEntry(index, "purchasePrice", e.target.value)
+                    }
+                  />
+                </Col>
+
+                <Col xs="auto" className="d-flex align-items-end">
+                  <Button
+                    variant="outline-danger"
+                    onClick={() => removeRestockEntry(index)}
+                  >
+                    Remove
+                  </Button>
+                </Col>
+              </Row>
+            </div>
+          ))}
+
+          <div className="d-flex justify-content-end">
+            <Button variant="secondary" onClick={addRestockEntry}>
+              + Add Another Product
+            </Button>
+          </div>
+        </Form>
+      </Modal.Body>
+
+      <Modal.Footer>
+        <Button
+          variant="outline-secondary"
+          onClick={() => setShowRestockModal(false)}
+        >
+          Close
+        </Button>
+        <Button variant="primary" onClick={handleAddRestock} disabled={isLoading}>
+          {isLoading ? "Saving…" : "Save Restock"}
+        </Button>
+      </Modal.Footer>
+    </Modal>
+
+
 
       {/* Backdrop spinner */}
       <Backdrop open={isLoading} sx={{ zIndex: theme => theme.zIndex.drawer + 1, color: "#fff" }}>
@@ -975,78 +1148,178 @@ const fetchData = async () => {
 
 
       {/* Add Stock Modal*/}
-      {showStockModal && (
-      <Modal show={showStockModal} onHide={() => setShowStockModal(false)} dialogClassName="custom-modal modal-dialog-centered">
-          <Form
-              onSubmit={e => {
-                e.preventDefault();
-                handleAddStock();
-              }}
-            >
-        <Modal.Header closeButton>
-          <Modal.Title className="text-uppercase">Add Stock</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+      <Modal
+        show={showStockModal}
+        onHide={() => setShowStockModal(false)}
+        dialogClassName="modal-dialog-centered modal-dialog-scrollable"
+        style={{
+          maxHeight: '90vh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <Form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleAddStock();
+          }}
+        >
+          <Modal.Header closeButton style={{ borderBottom: '1px solid #dee2e6' }}>
+            <Modal.Title className="text-uppercase">Add Stock</Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body
+            style={{
+              overflowY: 'auto',
+              maxHeight: '60vh',
+              paddingRight: '12px',
+              paddingLeft: '12px',
+            }}
+          >
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Invoice Number</Form.Label>
               <div className="d-flex align-items-center">
-                <Form.Select value={invoices.invoiceId} onChange={(e) => setStockData({ ...stockData, invoiceNumber: e.target.value })}>
+                <Form.Select
+                  value={stockMeta.invoiceNumber}
+                  onChange={(e) =>
+                    setStockMeta({ ...stockMeta, invoiceNumber: e.target.value })
+                  }
+                >
                   <option value="">Select the invoice</option>
-                  {invoices.map(inv => (
+                  {invoices.map((inv) => (
                     <option key={inv.invoiceId} value={inv.invoiceId}>
                       {inv.invoiceId}
                     </option>
                   ))}
                 </Form.Select>
-                <Button variant="primary" className="ms-2" onClick={() => setShowSupplierModal(true)}>
+                <Button
+                  variant="primary"
+                  className="ms-2"
+                  onClick={() => setShowSupplierModal(true)}
+                >
                   <i className="fas fa-plus"></i> +
                 </Button>
               </div>
             </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Product </Form.Label>
-              <Form.Control type="text" value={stockData.productId} onChange={(e) => setStockData({ ...stockData, productId: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Stock Quantity</Form.Label>
-              <Form.Control type="number" value={stockData.stockQuantity} onChange={(e) => setStockData({ ...stockData, stockQuantity: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Stock Threshold</Form.Label>
-              <Form.Control type="number" value={stockData.stockThreshold} onChange={(e) => setStockData({ ...stockData, stockThreshold: e.target.value })} />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Stock Price</Form.Label>
-              <Form.Control type="number" value={stockData.stockPrice} onChange={(e) => setStockData({ ...stockData, stockPrice: e.target.value })} />
-            </Form.Group>
+
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Supplier</Form.Label>
               <div className="d-flex align-items-center">
-                <Form.Select value={stockData.supplierId} onChange={(e) => setStockData({ ...stockData, supplierId: e.target.value })}>
+                <Form.Select
+                  value={stockMeta.supplierId}
+                  onChange={(e) =>
+                    setStockMeta({ ...stockMeta, supplierId: e.target.value })
+                  }
+                >
                   <option value="">Select a supplier</option>
-                  {supplierData.map(supplier => (
+                  {supplierData.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.supplierName}
                     </option>
                   ))}
                 </Form.Select>
-                <Button variant="primary" className="ms-2" onClick={() => setShowSupplierModal(true)}>
+                <Button
+                  variant="primary"
+                  className="ms-2"
+                  onClick={() => setShowSupplierModal(true)}
+                >
                   <i className="fas fa-plus"></i> +
                 </Button>
               </div>
             </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-            <Button type="button" variant="secondary" onClick={() => !isLoading && setShowStockModal(false)}>
+
+            <hr />
+            <h5 className="fw-bold">Products</h5>
+
+            {stockEntries.map((entry, index) => (
+              <div key={index} className="mb-3 border p-3 rounded">
+                <Row className="mb-2">
+                  <Col>
+                    <Form.Label>Product ID</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={entry.productId}
+                      onChange={(e) =>
+                        updateEntry(index, "productId", e.target.value)
+                      }
+                      placeholder="Product ID"
+                    />
+                  </Col>
+                  <Col>
+                    <Form.Label>Quantity</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={entry.stockQuantity}
+                      onChange={(e) =>
+                        updateEntry(index, "stockQuantity", e.target.value)
+                      }
+                      placeholder="Quantity"
+                    />
+                  </Col>
+                </Row>
+                <Row>
+                  <Col>
+                    <Form.Label>Threshold</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={entry.stockThreshold}
+                      onChange={(e) =>
+                        updateEntry(index, "stockThreshold", e.target.value)
+                      }
+                      placeholder="Threshold"
+                    />
+                  </Col>
+                  <Col>
+                    <Form.Label>Price</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={entry.stockPrice}
+                      onChange={(e) =>
+                        updateEntry(index, "stockPrice", e.target.value)
+                      }
+                      placeholder="Price"
+                    />
+                  </Col>
+                  <Col xs="auto" className="d-flex align-items-end">
+                    <Button
+                      variant="danger"
+                      onClick={() => removeStockRow(index)}
+                      disabled={stockEntries.length === 1}
+                    >
+                      −
+                    </Button>
+                  </Col>
+                </Row>
+              </div>
+            ))}
+
+            <Button variant="secondary" className="mb-3" onClick={addStockRow}>
+              + Add Another Product
+            </Button>
+          </Modal.Body>
+
+          <Modal.Footer
+            style={{
+              borderTop: '1px solid #dee2e6',
+              padding: '1rem',
+              backgroundColor: '#fff',
+              zIndex: 10,
+            }}
+          >
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => !isLoading && setShowStockModal(false)}
+            >
               Close
             </Button>
             <Button type="submit" variant="primary" disabled={isLoading}>
-              {isLoading ? "Adding…" : "Add"}
+              {isLoading ? "Adding…" : "Add Stock"}
             </Button>
-        </Modal.Footer>
+          </Modal.Footer>
         </Form>
       </Modal>
-      )}
 
       {/* invoice Modal*/}
       {showInvoiceModal && (
@@ -1257,211 +1530,151 @@ const fetchData = async () => {
         dialogClassName="small-offset-modal modal-dialog-centered"
       >
         <Form
-          onSubmit={e => {
+          onSubmit={(e) => {
             e.preventDefault();
-            handleAddProduct();
+            handleAddStock();
           }}
         >
           <Modal.Header closeButton>
-            <Modal.Title>Add Product</Modal.Title>
+            <Modal.Title className="text-uppercase">Add Stock</Modal.Title>
           </Modal.Header>
-
           <Modal.Body>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Inventory Product</Form.Label>
-                  <Form.Select
-                    value={productData.inventoryId}
-                    onChange={e =>
-                      setProductData({ ...productData, inventoryId: e.target.value })
-                    }
-                    required
-                  >
-                    <option value="">Select a product</option>
-                    {inventories.map(inv => (
-                      <option key={inv.productId} value={inv.productId}>
-                        {inv.productId}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Product Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={productData.name}
-                    onChange={e =>
-                      setProductData({ ...productData, name: e.target.value })
-                    }
-                    required
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Price</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={productData.price}
-                    onChange={e =>
-                      setProductData({ ...productData, price: e.target.value })
-                    }
-                    required
-                    min="0"
-                    step="1"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Price After Discount</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={productData.priceAfterDiscount}
-                    onChange={e =>
-                      setProductData({
-                        ...productData,
-                        priceAfterDiscount: e.target.value,
-                      })
-                    }
-                    min="0"
-                    step="0.001"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
             <Form.Group className="mb-3">
-              <Form.Label>Barcode</Form.Label>
-              <Form.Control
-                type="text"
-                value={productData.barcodes}
-                onChange={e =>
-                  setProductData({ ...productData, barcodes: e.target.value })
-                }
-                placeholder="Enter product barcode"
-              />
+              <Form.Label className="fw-bold">Invoice Number</Form.Label>
+              <div className="d-flex align-items-center">
+                <Form.Select
+                  value={stockMeta.invoiceNumber}
+                  onChange={(e) =>
+                    setStockMeta({ ...stockMeta, invoiceNumber: e.target.value })
+                  }
+                >
+                  <option value="">Select the invoice</option>
+                  {invoices.map((inv) => (
+                    <option key={inv.invoiceId} value={inv.invoiceId}>
+                      {inv.invoiceId}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Button
+                  variant="primary"
+                  className="ms-2"
+                  onClick={() => setShowSupplierModal(true)}
+                >
+                  <i className="fas fa-plus"></i> +
+                </Button>
+              </div>
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label>Discount Quantity</Form.Label>
-              <Form.Control
-                type="text"
-                value={productData.discountQuantity}
-                onChange={e =>
-                  setProductData({ ...productData, discountQuantity: e.target.value })
-                }
-                placeholder="Enter product discount quantity"
-              />
+              <Form.Label className="fw-bold">Supplier</Form.Label>
+              <div className="d-flex align-items-center">
+                <Form.Select
+                  value={stockMeta.supplierId}
+                  onChange={(e) =>
+                    setStockMeta({ ...stockMeta, supplierId: e.target.value })
+                  }
+                >
+                  <option value="">Select a supplier</option>
+                  {supplierData.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.supplierName}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Button
+                  variant="primary"
+                  className="ms-2"
+                  onClick={() => setShowSupplierModal(true)}
+                >
+                  <i className="fas fa-plus"></i> +
+                </Button>
+              </div>
             </Form.Group>
 
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Category</Form.Label>
-                  <div className="d-flex">
-                    <Form.Select
-                      value={productData.categoryId ?? ""}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setProductData({
-                          ...productData,
-                          categoryId: val === "" ? null : Number(val),
-                          subCategoryId: null,
-                        });
-                      }}
-                      required
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.categoryName}
-                        </option>
-                      ))}
-                    </Form.Select>
-                    <Button
-                      type="button"
-                      variant="outline-secondary"
-                      className="ms-2"
-                      onClick={() => setShowCategoryModal(true)}
-                      disabled={isLoading}
-                    >
-                      +
-                    </Button>
-                  </div>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Subcategory</Form.Label>
-                  <div className="d-flex">
-                    <Form.Select
-                      value={productData.subCategoryId ?? ""}
-                      onChange={e =>
-                        setProductData({
-                          ...productData,
-                          subCategoryId:
-                            e.target.value === "" ? null : Number(e.target.value),
-                        })
+            <hr />
+            <h5 className="fw-bold">Products</h5>
+
+            {stockEntries.map((entry, index) => (
+              <div key={index} className="mb-3 border p-3 rounded">
+                <Row className="mb-2">
+                  <Col>
+                    <Form.Label>Product ID</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={entry.productId}
+                      onChange={(e) =>
+                        updateEntry(index, "productId", e.target.value)
                       }
-                      required
-                      disabled={productData.categoryId === null}
-                      className="me-2"
-                    >
-                      <option value="">Select a subcategory</option>
-                      {renderSubCategoryOptions()}
-                    </Form.Select>
+                      placeholder="Product ID"
+                    />
+                  </Col>
+                  <Col>
+                    <Form.Label>Quantity</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={entry.stockQuantity}
+                      onChange={(e) =>
+                        updateEntry(index, "stockQuantity", e.target.value)
+                      }
+                      placeholder="Quantity"
+                    />
+                  </Col>
+                </Row>
+                <Row>
+                  <Col>
+                    <Form.Label>Threshold</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={entry.stockThreshold}
+                      onChange={(e) =>
+                        updateEntry(index, "stockThreshold", e.target.value)
+                      }
+                      placeholder="Threshold"
+                    />
+                  </Col>
+                  <Col>
+                    <Form.Label>Price</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={entry.stockPrice}
+                      onChange={(e) =>
+                        updateEntry(index, "stockPrice", e.target.value)
+                      }
+                      placeholder="Price"
+                    />
+                  </Col>
+                  <Col xs="auto" className="d-flex align-items-end">
                     <Button
-                      type="button"
-                      variant="outline-secondary"
-                      onClick={() => setShowSubCategoryModal(true)}
-                      disabled={isLoading || productData.categoryId === null}
+                      variant="danger"
+                      onClick={() => removeStockRow(index)}
+                      disabled={stockEntries.length === 1}
                     >
-                      +
+                      −
                     </Button>
-                  </div>
-                  {productData.categoryId === null && (
-                    <Form.Text className="text-muted">
-                      Please select a category first
-                    </Form.Text>
-                  )}
-                </Form.Group>
-              </Col>
-            </Row>
+                  </Col>
+                </Row>
+              </div>
+            ))}
 
-            <Form.Group className="mb-3">
-              <Form.Label>Purchase Cap</Form.Label>
-              <Form.Control
-                type="number"
-                value={productData.purchaseCap}
-                onChange={e =>
-                  setProductData({ ...productData, purchaseCap: e.target.value })
-                }
-                min="1"
-              />
-            </Form.Group>
+            <Button variant="secondary" className="mb-3" onClick={addStockRow}>
+              + Add Another Product
+            </Button>
           </Modal.Body>
-
           <Modal.Footer>
             <Button
               type="button"
               variant="secondary"
-              onClick={() => !isLoading && setShowProductModal(false)}
+              onClick={() => !isLoading && setShowStockModal(false)}
             >
               Close
             </Button>
             <Button type="submit" variant="primary" disabled={isLoading}>
-              {isLoading ? "Adding..." : "Submit"}
+              {isLoading ? "Adding…" : "Add Stock"}
             </Button>
           </Modal.Footer>
         </Form>
       </Modal>
+
 
       {/* Add Category Modal (wide offset) – now launched from within Add Product */}
       <Modal show={showCategoryModal} onHide={() => !isLoading && setShowCategoryModal(false)} dialogClassName="custom-modal modal-dialog-centered">
