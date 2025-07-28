@@ -352,7 +352,6 @@ const fetchData = async () => {
       });
       showToastMessage("Subcategory added successfully");
       setShowSubCategoryModal(false);
-      resetForms();
       e.preventDefault()
       const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
         headers: { "Content-Type": "application/json" }
@@ -1530,146 +1529,207 @@ const addRestockEntry = () => {
         dialogClassName="small-offset-modal modal-dialog-centered"
       >
         <Form
-          onSubmit={(e) => {
+          onSubmit={e => {
             e.preventDefault();
-            handleAddStock();
+            handleAddProduct();
           }}
         >
           <Modal.Header closeButton>
-            <Modal.Title className="text-uppercase">Add Stock</Modal.Title>
+            <Modal.Title>Add Product</Modal.Title>
           </Modal.Header>
+
           <Modal.Body>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Inventory Product</Form.Label>
+                  <Form.Select
+                    value={productData.inventoryId}
+                    onChange={e =>
+                      setProductData({ ...productData, inventoryId: e.target.value })
+                    }
+                    required
+                  >
+                    <option value="">Select a product</option>
+                    {inventories.map(inv => (
+                      <option key={inv.productId} value={inv.productId}>
+                        {inv.productId}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Product Name</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={productData.name}
+                    onChange={e =>
+                      setProductData({ ...productData, name: e.target.value })
+                    }
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Price</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={productData.price}
+                    onChange={e =>
+                      setProductData({ ...productData, price: e.target.value })
+                    }
+                    required
+                    min="0"
+                    step="1"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Price After Discount</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={productData.priceAfterDiscount}
+                    onChange={e =>
+                      setProductData({
+                        ...productData,
+                        priceAfterDiscount: e.target.value,
+                      })
+                    }
+                    min="0"
+                    step="0.001"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Invoice Number</Form.Label>
-              <div className="d-flex align-items-center">
-                <Form.Select
-                  value={stockMeta.invoiceNumber}
-                  onChange={(e) =>
-                    setStockMeta({ ...stockMeta, invoiceNumber: e.target.value })
-                  }
-                >
-                  <option value="">Select the invoice</option>
-                  {invoices.map((inv) => (
-                    <option key={inv.invoiceId} value={inv.invoiceId}>
-                      {inv.invoiceId}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Button
-                  variant="primary"
-                  className="ms-2"
-                  onClick={() => setShowSupplierModal(true)}
-                >
-                  <i className="fas fa-plus"></i> +
-                </Button>
-              </div>
+              <Form.Label>Barcode</Form.Label>
+              <Form.Control
+                type="text"
+                value={productData.barcodes}
+                onChange={e =>
+                  setProductData({ ...productData, barcodes: e.target.value })
+                }
+                placeholder="Enter product barcode"
+              />
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label className="fw-bold">Supplier</Form.Label>
-              <div className="d-flex align-items-center">
-                <Form.Select
-                  value={stockMeta.supplierId}
-                  onChange={(e) =>
-                    setStockMeta({ ...stockMeta, supplierId: e.target.value })
-                  }
-                >
-                  <option value="">Select a supplier</option>
-                  {supplierData.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.supplierName}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Button
-                  variant="primary"
-                  className="ms-2"
-                  onClick={() => setShowSupplierModal(true)}
-                >
-                  <i className="fas fa-plus"></i> +
-                </Button>
-              </div>
+              <Form.Label>Discount Quantity</Form.Label>
+              <Form.Control
+                type="text"
+                value={productData.discountQuantity}
+                onChange={e =>
+                  setProductData({ ...productData, discountQuantity: e.target.value })
+                }
+                placeholder="Enter product discount quantity"
+              />
             </Form.Group>
 
-            <hr />
-            <h5 className="fw-bold">Products</h5>
-
-            {stockEntries.map((entry, index) => (
-              <div key={index} className="mb-3 border p-3 rounded">
-                <Row className="mb-2">
-                  <Col>
-                    <Form.Label>Product ID</Form.Label>
-                    <Form.Control
-                      type="text"
-                      value={entry.productId}
-                      onChange={(e) =>
-                        updateEntry(index, "productId", e.target.value)
-                      }
-                      placeholder="Product ID"
-                    />
-                  </Col>
-                  <Col>
-                    <Form.Label>Quantity</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={entry.stockQuantity}
-                      onChange={(e) =>
-                        updateEntry(index, "stockQuantity", e.target.value)
-                      }
-                      placeholder="Quantity"
-                    />
-                  </Col>
-                </Row>
-                <Row>
-                  <Col>
-                    <Form.Label>Threshold</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={entry.stockThreshold}
-                      onChange={(e) =>
-                        updateEntry(index, "stockThreshold", e.target.value)
-                      }
-                      placeholder="Threshold"
-                    />
-                  </Col>
-                  <Col>
-                    <Form.Label>Price</Form.Label>
-                    <Form.Control
-                      type="number"
-                      value={entry.stockPrice}
-                      onChange={(e) =>
-                        updateEntry(index, "stockPrice", e.target.value)
-                      }
-                      placeholder="Price"
-                    />
-                  </Col>
-                  <Col xs="auto" className="d-flex align-items-end">
-                    <Button
-                      variant="danger"
-                      onClick={() => removeStockRow(index)}
-                      disabled={stockEntries.length === 1}
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Category</Form.Label>
+                  <div className="d-flex">
+                    <Form.Select
+                      value={productData.categoryId ?? ""}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setProductData({
+                          ...productData,
+                          categoryId: val === "" ? null : Number(val),
+                          subCategoryId: null,
+                        });
+                      }}
+                      required
                     >
-                      −
+                      <option value="">Select a category</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.categoryName}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Button
+                      type="button"
+                      variant="outline-secondary"
+                      className="ms-2"
+                      onClick={() => setShowCategoryModal(true)}
+                      disabled={isLoading}
+                    >
+                      +
                     </Button>
-                  </Col>
-                </Row>
-              </div>
-            ))}
+                  </div>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Subcategory</Form.Label>
+                  <div className="d-flex">
+                    <Form.Select
+                      value={productData.subCategoryId ?? ""}
+                      onChange={e =>
+                        setProductData({
+                          ...productData,
+                          subCategoryId:
+                            e.target.value === "" ? null : Number(e.target.value),
+                        })
+                      }
+                      required
+                      disabled={productData.categoryId === null}
+                      className="me-2"
+                    >
+                      <option value="">Select a subcategory</option>
+                      {renderSubCategoryOptions()}
+                    </Form.Select>
+                    <Button
+                      type="button"
+                      variant="outline-secondary"
+                      onClick={() => setShowSubCategoryModal(true)}
+                      disabled={isLoading || productData.categoryId === null}
+                    >
+                      +
+                    </Button>
+                  </div>
+                  {productData.categoryId === null && (
+                    <Form.Text className="text-muted">
+                      Please select a category first
+                    </Form.Text>
+                  )}
+                </Form.Group>
+              </Col>
+            </Row>
 
-            <Button variant="secondary" className="mb-3" onClick={addStockRow}>
-              + Add Another Product
-            </Button>
+            <Form.Group className="mb-3">
+              <Form.Label>Purchase Cap</Form.Label>
+              <Form.Control
+                type="number"
+                value={productData.purchaseCap}
+                onChange={e =>
+                  setProductData({ ...productData, purchaseCap: e.target.value })
+                }
+                min="1"
+              />
+            </Form.Group>
           </Modal.Body>
+
           <Modal.Footer>
             <Button
               type="button"
               variant="secondary"
-              onClick={() => !isLoading && setShowStockModal(false)}
+              onClick={() => !isLoading && setShowProductModal(false)}
             >
               Close
             </Button>
             <Button type="submit" variant="primary" disabled={isLoading}>
-              {isLoading ? "Adding…" : "Add Stock"}
+              {isLoading ? "Adding..." : "Submit"}
             </Button>
           </Modal.Footer>
         </Form>
