@@ -559,7 +559,7 @@ const fetchData = async () => {
     );
     return filtered.map(subCat => (
       <option key={subCat.id} value={subCat.id}>
-        {subCat.subcategoryName}
+        {subCat.id + " - " + subCat.subcategoryName}
       </option>
     ));
   };
@@ -1653,7 +1653,7 @@ const addRestockEntry = () => {
                       <option value="">Select a category</option>
                       {categories.map(cat => (
                         <option key={cat.id} value={cat.id}>
-                          {cat.categoryName}
+                          {cat.id + " - " + cat.categoryName}
                         </option>
                       ))}
                     </Form.Select>
