@@ -1,29 +1,21 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { toast } from 'react-toastify';
+import axios from 'axios';
+import { baseUrl } from '../../../constants';
 import { loginUserApi, registerUserApi } from '../../../services/Auth';
 
-const showToastSuccess = (message) => {
-  toast.success(message);
-};
-
-const showToastError = (message) => {
-  toast.error(message);
-};
-
-// Async thunk for login
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await loginUserApi(credentials);
-      return response; 
+      return response;
     } catch (error) {
-      return rejectWithValue(error.message); 
+      return rejectWithValue(error.message);
     }
   }
 );
 
-// Async thunk for register
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
   async (userData, { rejectWithValue }) => {
@@ -36,12 +28,27 @@ export const registerUser = createAsyncThunk(
   }
 );
 
+export const editUser = createAsyncThunk(
+  'auth/editUser',
+  async ({ phoneNumber, payload }, { rejectWithValue }) => {
+    try {
+      const response = await axios.put(
+        `${baseUrl}/user-details/${phoneNumber}`,
+        payload
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
     isAuthenticated: false,
     isLoading: false,
-    user: null, 
+    user: null,
     error: null,
   },
   reducers: {
@@ -49,25 +56,27 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.user = null;
       state.error = null;
-      // Clear persisted user data
       localStorage.removeItem('user');
-      showToastSuccess('Logged out successfully');
+      toast.success('Logged out successfully');
+    },
+    loadUserFromStorage: (state) => {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        try {
+          state.user = JSON.parse(atob(stored));
+          state.isAuthenticated = true;
+        } catch {}
+      }
     },
   },
   extraReducers: (builder) => {
     builder
-      // Handle login
       .addCase(loginUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (!action.payload) {
-          state.error = 'Login failed. No response received.';
-          showToastError('Login failed. Please try again.');
-          return;
-        }
         state.isAuthenticated = true;
         state.user = {
           firstName: action.payload.firstName,
@@ -75,27 +84,22 @@ const authSlice = createSlice({
           phone: action.payload.phoneNumber,
           email: action.payload.email,
           role: action.payload.role,
-        };  
-        showToastSuccess(`Welcome, ${state.user.firstName || 'User'}!`);
+          passwordHash: action.payload.passwordHash || '',
+        };
+        toast.success(`Welcome, ${state.user.firstName}!`);
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
-        showToastError(action.payload);
+        toast.error(action.payload);
       })
 
-      // Handle register
       .addCase(registerUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (!action.payload) {
-          state.error = 'Registration failed. No response received.';
-          showToastError('Registration failed. Please try again.');
-          return;
-        }
         state.isAuthenticated = true;
         state.user = {
           firstName: action.payload.firstName,
@@ -103,21 +107,43 @@ const authSlice = createSlice({
           phone: action.payload.phoneNumber,
           email: action.payload.email,
           role: action.payload.role,
-        };  
-        showToastSuccess('Registration successful');
-        showToastSuccess(`Welcome ${state.user.firstName || 'User'}!`);
+          passwordHash: action.payload.passwordHash || '',
+        };
+        toast.success('Registration successful');
         if (action.meta.arg.rememberMe) {
-          const hashedUser = btoa(JSON.stringify(state.user));
-          localStorage.setItem('user', hashedUser);
+          localStorage.setItem('user', btoa(JSON.stringify(state.user)));
         }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
-        showToastError(action.payload);
+        toast.error(action.payload);
+      })
+
+      .addCase(editUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(editUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = {
+          email: action.payload.email,
+          passwordHash: action.payload.passwordHash,
+          phone: action.payload.phoneNumber,
+          firstName: action.payload.firstName,
+          lastName: action.payload.lastName,
+          role: state.user.role,
+        };
+        toast.success('Profile updated successfully');
+        localStorage.setItem('user', btoa(JSON.stringify(state.user)));
+      })
+      .addCase(editUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+        toast.error(action.payload);
       });
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, loadUserFromStorage } = authSlice.actions;
 export default authSlice.reducer;

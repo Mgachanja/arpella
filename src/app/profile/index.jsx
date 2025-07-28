@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Container, Row, Col, Modal, Button, Form, Spinner } from 'react-bootstrap';
+import { Container, Card, Row, Col, Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { FaPencilAlt, FaHourglass, FaTruck, FaCheckCircle } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { editUserData } from '../../services/editUserData';
-import Nav from '../../components/Nav';
-import { toast } from 'react-toastify';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import Swal from 'sweetalert2';
+import { toast } from 'react-toastify';
+import Nav from '../../components/Nav';
 import { baseUrl } from '../../constants';
 
 function Index() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, error } = useSelector((state) => state.auth);
-  const products = useSelector((state) => state.products.products);
-  
+  const { user, isAuthenticated, error } = useSelector((s) => s.auth);
+  const products = useSelector((s) => s.products.products);
+
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -25,235 +25,168 @@ function Index() {
     const fetchOrders = async () => {
       setIsApiLoading(true);
       try {
-        const response = await axios.get(`${baseUrl}/orders`);
-        console.log('Fetched Orders:', response.data);
-        const userOrders = response.data.filter(order => order.userId === user?.phone);
-        console.log('User Orders:', userOrders);
-        setOrders(userOrders);
-      } catch (err) {
+        const { data } = await axios.get(`${baseUrl}/orders`);
+        setOrders(data.filter((o) => o.userId === user?.phone));
+      } catch {
         toast.error('Failed to fetch orders.');
-        console.error('Error fetching orders:', err);
       } finally {
         setIsApiLoading(false);
       }
     };
-    if (user?.phone) {
-      fetchOrders();
-    }
+    if (user?.phone) fetchOrders();
   }, [user]);
 
-  const handleEditClick = (field, currentValue) => {
-    setEditingField(field);
-    setNewValue(currentValue);
+  const handleEditClick = (f, v) => {
+    setEditingField(f);
+    setNewValue(v || '');
     setShowEditModal(true);
   };
 
   const handleSubmit = async () => {
+    const payload = {
+      email:        editingField === 'email'        ? newValue : user.email,
+      passwordHash: editingField === 'passwordHash' ? newValue : user.passwordHash || '',
+      phoneNumber:  user.phone,
+      firstName:    editingField === 'firstName'    ? newValue : user.firstName,
+      lastName:     editingField === 'lastName'     ? newValue : user.lastName,
+    };
+    const r = await Swal.fire({
+      title: `Update ${editingField}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes',
+      reverseButtons: true,
+    });
+    if (!r.isConfirmed) return;
     setIsApiLoading(true);
     try {
-      await editUserData(user.phone, editingField, newValue);
-      setShowEditModal(false);
+      await axios.put(`${baseUrl}/user-details/${user.phone}`, payload);
+      await Swal.fire('Saved!', '', 'success');
       window.location.reload();
-    } catch (error) {
-      toast.error(error);
+    } catch (e) {
+      Swal.fire('Error', e?.response?.data?.message || 'Failed', 'error');
     } finally {
       setIsApiLoading(false);
+      setShowEditModal(false);
     }
   };
 
-  const renderOrderIcon = (status) => {
-    if (status.toLowerCase() === 'pending') return <FaHourglass color="blue" />;
-    if (status.toLowerCase() === 'in transit') return <FaTruck color="black" />;
-    if (status.toLowerCase() === 'fulfilled') return <FaCheckCircle color="green" />;
+  const renderIcon = (s) => {
+    const st = (s || '').toLowerCase();
+    if (st === 'pending') return <FaHourglass color="blue" />;
+    if (st === 'in transit') return <FaTruck color="black" />;
+    if (st === 'fulfilled') return <FaCheckCircle color="green" />;
     return null;
   };
 
-  const handleOrderClick = (order) => {
-    console.log('Selected Order:', order);
-    setSelectedOrder(order);
-  };
-
-  const handleCloseOrderModal = () => {
-    setSelectedOrder(null);
-  };
-
   return (
-    <div className="h-100 pb-5">
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Nav />
-      <Container>
-        <h4 className="text-center pt-3 pb-3">Personal Details</h4>
-        {isAuthenticated ? (
-          <>
-            <Row className="mb-3">
-              <Col xs={5}><strong>First Name:</strong></Col>
-              <Col xs={5}>{user?.firstName || 'N/A'}</Col>
-              <Col xs={2} className="text-end">
-                <FaPencilAlt onClick={() => handleEditClick('firstName', user?.firstName)} style={{ cursor: 'pointer' }} />
-              </Col>
-            </Row>
-            <Row className="mb-3">
-              <Col xs={5}><strong>Last Name:</strong></Col>
-              <Col xs={5}>{user?.lastName || 'N/A'}</Col>
-              <Col xs={2} className="text-end">
-                <FaPencilAlt onClick={() => handleEditClick('lastName', user?.lastName)} style={{ cursor: 'pointer' }} />
-              </Col>
-            </Row>
-            <Row className="mb-3">
-              <Col xs={5}><strong>Email:</strong></Col>
-              <Col xs={5}>{user?.email || 'N/A'}</Col>
-              <Col xs={2} className="text-end">
-                <FaPencilAlt onClick={() => handleEditClick('email', user?.email)} style={{ cursor: 'pointer' }} />
-              </Col>
-            </Row>
-            <Row className="mb-3">
-              <Col xs={5}><strong>Phone:</strong></Col>
-              <Col xs={5}>{user?.phone || 'N/A'}</Col>
-              <Col xs={2} className="text-end">
-                <FaPencilAlt onClick={() => handleEditClick('PhoneNumber', user?.phone)} style={{ cursor: 'pointer' }} />
-              </Col>
-            </Row>
-            <Row className="mb-3">
-              <Col xs={5}><strong>Password:</strong></Col>
-              <Col xs={5}>**********</Col>
-              <Col xs={2} className="text-end">
-                <FaPencilAlt onClick={() => handleEditClick('password', '')} style={{ cursor: 'pointer' }} />
-              </Col>
-            </Row>
-          </>
-        ) : (
-          <p className="text-center">No user data available. Please log in.</p>
-        )}
-        {error && <p className="text-danger text-center">{error}</p>}
-
-        <h5 className="text-center pt-3 pb-3">Order History</h5>
-        {orders.length === 0 ? (
-          <p className="text-center">No orders found.</p>
-        ) : (
-          orders.map((order) => (
-            <Row
-              key={order?.orderid || Math.random()}
-              className="mb-3 border-bottom pb-3 align-items-center"
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleOrderClick(order)}
-            >
-              <Col xs={3}>
-                <strong>
-                  ORDER {order?.orderid ? order.orderid.toUpperCase() : 'N/A'}
-                </strong>
-                <div>{order.status || 'N/A'}</div>
-              </Col>
-              <Col xs={6} className="d-flex justify-content-center">
-                <Button variant="link" className="text-primary text-decoration-none">
-                  View Details
-                </Button>
-              </Col>
-              <Col xs={3} className="text-end">
-                {renderOrderIcon(order.status)}
-              </Col>
-            </Row>
-          ))
-        )}
-
-        {user?.role !== 'Customer' && (
-          <Button onClick={() => navigate('/control')} className="btn btn-primary">
-            Admin Panel
-          </Button>
-        )}
-
-        <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
-          <Modal.Header closeButton>
-            <Modal.Title>Editing {editingField}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {editingField === 'PasswordHash' ? (
+      <Container className="py-5 flex-grow-1">
+        <Card style={{ maxWidth: 800, margin: '0 auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', borderRadius: 8 }}>
+          <Card.Body style={{ paddingLeft: '2rem', paddingRight: '2rem' }}>
+            <h4 className="text-center mb-4">Personal Details</h4>
+            {isAuthenticated ? (
               <>
-                <Button variant="outline-primary" className="mb-3">
-                  Request OTP
-                </Button>
-                <Form.Group controlId="newPassword">
-                  <Form.Label>New Password</Form.Label>
-                  <Form.Control
-                    type="password"
-                    placeholder="Enter new password"
-                    onChange={(e) => setNewValue(e.target.value)}
-                  />
-                </Form.Group>
+                {['firstName','lastName','email','passwordHash'].map((field) => (
+                  <Row key={field} className="mb-3">
+                    <Col xs={5}><strong>{field==='passwordHash'?'Password':field.charAt(0).toUpperCase()+field.slice(1)}:</strong></Col>
+                    <Col xs={5}>
+                      {field==='passwordHash'?'••••••••••':user[field]||'N/A'}
+                    </Col>
+                    <Col xs={2} className="text-end">
+                      <FaPencilAlt onClick={() => handleEditClick(field, user[field])} style={{ cursor: 'pointer' }} />
+                    </Col>
+                  </Row>
+                ))}
+                <Row className="mb-3">
+                  <Col xs={5}><strong>Phone:</strong></Col>
+                  <Col xs={7}>{user.phone||'N/A'}</Col>
+                </Row>
               </>
             ) : (
-              <Form.Group controlId="newValue">
-                <Form.Label>New {editingField}</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
-                />
-              </Form.Group>
+              <p className="text-center">Please log in.</p>
             )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleSubmit}>
-              Submit
-            </Button>
-          </Modal.Footer>
-        </Modal>
+            {error && <p className="text-danger text-center">{error}</p>}
 
-        <Modal show={!!selectedOrder} onHide={handleCloseOrderModal}>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              Order Details - ORDER {selectedOrder?.orderid ? selectedOrder.orderid.toUpperCase() : 'N/A'}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {selectedOrder &&
-            Array.isArray(selectedOrder.orderItems) &&
-            selectedOrder.orderItems.length > 0 ? (
-              selectedOrder.orderItems.map((item, index) => {
-                const product = products.find((prod) => prod.id === item.productId);
+            <h5 className="text-center mt-5 mb-4">Order History</h5>
+            {orders.length===0
+              ? <p className="text-center">No orders found.</p>
+              : orders.map((o) => (
+                  <Row key={o.orderid} className="mb-3 border-bottom pb-3 align-items-center" style={{ cursor: 'pointer' }} onClick={() => setSelectedOrder(o)}>
+                    <Col xs={3}><strong>ORDER {o.orderid.toUpperCase()}</strong><div>{o.status}</div></Col>
+                    <Col xs={6} className="d-flex justify-content-center"><Button variant="link" className="text-primary">View Details</Button></Col>
+                    <Col xs={3} className="text-end">{renderIcon(o.status)}</Col>
+                  </Row>
+                ))
+            }
+            {user?.role!=='Customer' && (
+              <div className="text-center mt-4">
+                <Button onClick={()=>navigate('/control')} variant="primary">Admin Panel</Button>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+      </Container>
+
+      <footer style={{ background: '#f8f9fa', padding: '1rem 0', marginTop: 'auto' }}>
+        <Container className="text-center">
+          <div>Contact: 0704288802</div>
+          <div>
+            <Link to="/terms-and-conditions" className="mx-2">Terms & Conditions</Link>|
+            <Link to="/privacy-policy" className="mx-2">Privacy Policy</Link>
+          </div>
+          <div className="mt-2">© {new Date().getFullYear()} All rights reserved.</div>
+        </Container>
+      </footer>
+
+      <Modal show={showEditModal} onHide={()=>setShowEditModal(false)} centered>
+        <Modal.Header closeButton><Modal.Title>Editing {editingField}</Modal.Title></Modal.Header>
+        <Modal.Body>
+          <Form.Group controlId="newValue">
+            <Form.Label>New {editingField==='passwordHash'?'Password':editingField.charAt(0).toUpperCase()+editingField.slice(1)}</Form.Label>
+            <Form.Control
+              type={editingField==='passwordHash'?'password':'text'}
+              value={newValue}
+              onChange={e=>setNewValue(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={()=>setShowEditModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={handleSubmit} disabled={isApiLoading}>
+            {isApiLoading?<Spinner animation="border" size="sm"/>:'Submit'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={!!selectedOrder} onHide={()=>setSelectedOrder(null)}>
+        <Modal.Header closeButton><Modal.Title>Order Details – ORDER {selectedOrder?.orderid?.toUpperCase()}</Modal.Title></Modal.Header>
+        <Modal.Body>
+          {selectedOrder?.orderItems?.length>0
+            ? selectedOrder.orderItems.map((item,i)=>{
+                const p=products.find(x=>x.id===item.productId);
                 return (
-                  <Row key={index} className="mb-3 align-items-center">
+                  <Row key={i} className="mb-3 align-items-center">
                     <Col xs={3}>
-                      {product?.productImage ? (
-                        <img
-                          src={product.productImage}
-                          alt={product.name}
-                          style={{ width: '80px', height: '80px', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div style={{ width: '80px', height: '80px', backgroundColor: '#ccc' }}></div>
-                      )}
+                      {p?.productImage
+                        ? <img src={p.productImage} alt={p.name} style={{width:80,height:80,objectFit:'cover'}}/>
+                        : <div style={{width:80,height:80,background:'#ccc'}}/>
+                      }
                     </Col>
-                    <Col xs={6}>
-                      <h6>{product?.name || 'Unnamed Product'}</h6>
-                      <p>
-                        Price: KSH {product?.price ? parseFloat(product.price).toFixed(2) : 'N/A'}
-                      </p>
-                    </Col>
-                    <Col xs={3}>
-                      <p>Qty: {item.quantity}</p>
-                    </Col>
+                    <Col xs={6}><h6>{p?.name}</h6><p>Price: KSH {p?.price?.toFixed(2)}</p></Col>
+                    <Col xs={3}><p>Qty: {item.quantity}</p></Col>
                   </Row>
                 );
               })
-            ) : (
-              <p className="text-center text-muted">No products found in this order.</p>
-            )}
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseOrderModal}>
-              Close
-            </Button>
-          </Modal.Footer>
-        </Modal>
-      </Container>
+            : <p className="text-center text-muted">No items.</p>
+          }
+        </Modal.Body>
+        <Modal.Footer><Button variant="secondary" onClick={()=>setSelectedOrder(null)}>Close</Button></Modal.Footer>
+      </Modal>
 
       <Modal show={isApiLoading} centered backdrop="static" keyboard={false}>
-        <Modal.Body className="text-center">
-          <Spinner animation="border" role="status" />
-          <p className="mt-3">Fetching your orders...</p>
-        </Modal.Body>
+        <Modal.Body className="text-center"><Spinner animation="border" role="status"/><p className="mt-3">Processing…</p></Modal.Body>
       </Modal>
     </div>
   );

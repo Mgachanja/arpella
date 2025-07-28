@@ -10,6 +10,8 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff, Delete } from "@mui/icons-material";
 import { toast } from "react-toastify";
+import Swal from 'sweetalert2';
+
 
 const Staff = () => {
   const [showForm, setShowForm] = useState(false);
@@ -42,16 +44,29 @@ const Staff = () => {
     }
   };
 
-  const handleDelete = async (phoneNumber) => {
-    if (!window.confirm("Are you sure you want to delete this staff member?")) return;
-    try {
-      await deleteStaff(phoneNumber);
-      toast.success("Staff deleted successfully!");
-      dispatch(fetchStaffMembers());
-    } catch (err) {
-      toast.error(err?.message || "Failed to delete staff member");
-    }
-  };
+ const handleDelete = async (phoneNumber) => {
+  const result = await Swal.fire({
+    title: 'Delete Staff Member?',
+    text: 'This action cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Yes, delete it!',
+    cancelButtonText: 'Cancel'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await deleteStaff(phoneNumber);
+    toast.success('Staff deleted successfully!');
+    dispatch(fetchStaffMembers());
+  } catch (err) {
+    toast.error(err?.message || 'Failed to delete staff member');
+  }
+};
+
 
   return (
     <div>

@@ -1,307 +1,350 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProductsAndRelated } from '../../redux/slices/productsSlice';
-import Nav from '../../components/Nav';
+import NavBar from '../../components/Nav';
 import ProductContainer from '../../components/ProductContainer';
 import successToast from '../UserNotifications/successToast';
 import { addItemToCart } from '../../redux/slices/cartSlice';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Typography,
-  CircularProgress,
-  Button as MUIButton,
   Box,
-  Backdrop
+  Backdrop,
+  CircularProgress,
+  Paper,
+  Typography,
+  TextField,
+  Container as MuiContainer,
+  Button as MuiButton
 } from '@mui/material';
-import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
-import Drawer from '@mui/material/Drawer';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemText from '@mui/material/ListItemText';
+import { styled } from '@mui/system';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Row, Col } from 'react-bootstrap';
 
-function Index() {
+const CenteredContainer = styled(MuiContainer)({
+  maxWidth: '1400px',
+  margin: '0 auto',
+  paddingTop: '24px',
+  paddingBottom: '24px'
+});
+
+// Professional category button styling
+const CategoryButton = styled(MuiButton)(({ theme, isSelected }) => ({
+  fontWeight: 600,
+  fontSize: '1rem',
+  textTransform: 'none',
+  padding: '8px 20px',
+  margin: '3px',
+  borderRadius: 0,
+  border: 'none',
+  borderBottom: isSelected ? '3px solid #1976d2' : '3px solid transparent',
+  backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+  color: isSelected ? '#1976d2' : '#424242',
+  transition: 'all 0.3s ease',
+  position: 'relative',
+  minHeight: '40px',
+  '&:hover': {
+    backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.12)' : 'rgba(66, 66, 66, 0.04)',
+    borderBottom: isSelected ? '3px solid #1976d2' : '3px solid rgba(25, 118, 210, 0.3)',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+  },
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    bottom: '-3px',
+    left: '50%',
+    width: isSelected ? '100%' : '0%',
+    height: '3px',
+    backgroundColor: '#1976d2',
+    transform: 'translateX(-50%)',
+    transition: 'width 0.3s ease'
+  }
+}));
+
+// Professional subcategory button styling
+const SubcategoryButton = styled(MuiButton)(({ theme, isSelected }) => ({
+  fontWeight: 500,
+  fontSize: '0.95rem',
+  textTransform: 'none',
+  padding: '6px 16px',
+  margin: '3px 6px',
+  borderRadius: 0,
+  border: 'none',
+  borderLeft: isSelected ? '4px solid #1976d2' : '4px solid transparent',
+  backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.06)' : 'rgba(245, 245, 245, 0.8)',
+  color: isSelected ? '#1976d2' : '#555',
+  transition: 'all 0.25s ease',
+  minWidth: '120px',
+  minHeight: '36px',
+  '&:hover': {
+    backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.1)' : 'rgba(25, 118, 210, 0.04)',
+    borderLeft: isSelected ? '4px solid #1976d2' : '4px solid rgba(25, 118, 210, 0.4)',
+    transform: 'translateX(2px)',
+    boxShadow: '2px 2px 6px rgba(0,0,0,0.08)'
+  }
+}));
+
+// Professional subcategory title styling
+const SubcategoryTitle = styled(Typography)(({ theme }) => ({
+  fontSize: '1.3rem',
+  fontWeight: 700,
+  color: '#2c3e50',
+  textAlign: 'center',
+  marginBottom: '16px',
+  position: 'relative',
+  letterSpacing: '0.5px',
+  '&::after': {
+    content: '""',
+    position: 'absolute',
+    bottom: '-6px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '70px',
+    height: '2px',
+    background: 'linear-gradient(90deg, #1976d2, #42a5f5)',
+    borderRadius: '2px'
+  }
+}));
+
+export default function ProductIndex() {
   const dispatch = useDispatch();
-  const { products, categories, subcategories, loading, error } = useSelector(state => state.products);
-  const cart = useSelector(state => state.cart.items);
+  const { products, categories, subcategories, loading } = useSelector(s => s.products);
+  const cart = useSelector(s => s.cart.items);
 
-  const [showDrawer, setShowDrawer] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  const [selectedSub, setSelectedSub] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [modalShow, setModalShow] = useState(false);
-  const [modalProduct, setModalProduct] = useState(null);
+  const [filtered, setFiltered] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [modalProd, setModalProd] = useState(null);
 
-  // Kick off the thunk once
   useEffect(() => {
     dispatch(fetchProductsAndRelated());
   }, [dispatch]);
 
-  // When products load or filter criteria change, recompute
   useEffect(() => {
     let list = products;
-
     if (selectedCategory !== 'All') {
       list = list.filter(p => p.category === selectedCategory.id);
     }
-    if (selectedSubcategory) {
-      list = list.filter(p => p.subcategory === selectedSubcategory.id);
+    if (selectedSub) {
+      list = list.filter(p => p.subcategory === selectedSub.id);
     }
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      list = list.filter(p => p.name.toLowerCase().includes(term));
+      const t = searchTerm.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(t));
     }
-    setFilteredProducts(list);
-  }, [products, selectedCategory, selectedSubcategory, searchTerm]);
+    setFiltered(list);
+  }, [products, selectedCategory, selectedSub, searchTerm]);
 
-  const handleCategoryClick = cat => {
-    setSearchTerm('');
-    setSelectedSubcategory(null);
-    setSelectedCategory(cat === 'All' ? 'All' : cat);
+  const subsOf = cat =>
+    subcategories.filter(sc => sc.categoryId === cat.id);
+
+  const onAdd = () => {
+    const id = modalProd.id || uuidv4();
+    dispatch(addItemToCart({ product: { id, quantity: modalProd.quantity } }));
+    successToast('Added to cart');
+    setShowModal(false);
   };
 
-  const handleSubcategoryClick = sub => {
-    setSearchTerm('');
-    setSelectedSubcategory(sub);
+  const handleImageLoad = (productId, productName) => {
+    console.log(`Successfully loaded image for product: ${productName} (ID: ${productId})`);
   };
 
-  const handleSearch = e => setSearchTerm(e.target.value);
-
-  const handleProductClick = product => {
-    const inCart = cart[product.id];
-    setModalProduct({ ...product, quantity: inCart ? inCart.quantity : 1 });
-    setModalShow(true);
+  const handleImageError = (productId, productName) => {
+    console.error(`Failed to load image for product: ${productName} (ID: ${productId})`);
   };
-
-  const handleAddToCart = () => {
-    if (!modalProduct) return;
-    const id = modalProduct.id || uuidv4();
-    dispatch(addItemToCart({ product: { id, quantity: modalProduct.quantity } }));
-    successToast('Product added to cart successfully!');
-    setModalShow(false);
-  };
-
-  const closeModal = () => setModalShow(false);
-
-  // Helper to get subcats of a category
-  const getSubcats = cat =>
-    subcategories.filter(sc => sc.category === cat.id);
 
   return (
-    <div>
-      <Nav />
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <NavBar />
 
-      {/* Search bar */}
-      <div className="container mt-3">
-        <input
-          type="text"
+      <CenteredContainer>
+        <TextField
+          fullWidth
           placeholder="Search products..."
           value={searchTerm}
-          onChange={handleSearch}
-          className="form-control"
+          onChange={e => setSearchTerm(e.target.value)}
+          variant="outlined"
+          sx={{ mb: 3 }}
+          InputProps={{ sx: { fontSize: '1.1rem', padding: '12px' } }}
         />
-      </div>
 
-      {/* Category button for mobile */}
-      <div className="container mt-3 d-lg-none">
-        <MUIButton
-          color="inherit"
-          onClick={() => setShowDrawer(true)}
-          startIcon={<MenuRoundedIcon />}
+        {/* Enhanced Categories Navigation */}
+        <Paper
+          elevation={6}
+          sx={{
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+            border: '1px solid rgba(0,0,0,0.08)',
+            borderRadius: '8px',
+            p: 2.5,
+            mb: 3,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.08)'
+          }}
         >
-          Categories
-        </MUIButton>
-      </div>
-
-      {/* Category buttons for desktop */}
-      <div className="container-fluid d-none d-lg-flex align-items-center justify-content-center py-2">
-        <button
-          className="btn category-btn me-2"
-          onClick={() => handleCategoryClick('All')}
-        >
-          All
-        </button>
-        {categories.map(cat => (
-          <button
-            key={cat.id}
-            className="btn category-btn me-2"
-            onClick={() => handleCategoryClick(cat)}
+          <Typography
+            variant="h6"
+            sx={{
+              textAlign: 'center',
+              mb: 1.5,
+              fontSize: '1.15rem',
+              fontWeight: 600,
+              color: '#2c3e50',
+              letterSpacing: '0.3px'
+            }}
           >
-            {cat.categoryName}
-          </button>
-        ))}
-      </div>
-
-      {/* Drawer for mobile categories */}
-      <Drawer
-        anchor="left"
-        open={showDrawer}
-        onClose={() => setShowDrawer(false)}
-      >
-        <Box sx={{ width: 250, p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Categories
+            Product Categories
           </Typography>
-          <List>
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => {
-                  handleCategoryClick('All');
-                  setShowDrawer(false);
-                }}
-              >
-                <ListItemText primary="All" />
-              </ListItemButton>
-            </ListItem>
-            {categories.map(cat => (
-              <Accordion key={cat.id} TransitionProps={{ unmountOnExit: true }}>
-                <AccordionSummary>
-                  <Typography>{cat.categoryName}</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <List>
-                    {getSubcats(cat).map(sub => (
-                      <ListItem key={sub.id} disablePadding>
-                        <ListItemButton
-                          onClick={() => {
-                            handleSubcategoryClick(sub);
-                            setShowDrawer(false);
-                          }}
-                        >
-                          <ListItemText primary={sub.subcategoryName} />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          </List>
-        </Box>
-      </Drawer>
-
-      {/* Subcategory buttons under desktop when a category is selected */}
-      {selectedCategory !== 'All' && getSubcats(selectedCategory).length > 0 && (
-        <div className="container-fluid d-flex align-items-center justify-content-center py-2">
-          {getSubcats(selectedCategory).map(sub => (
-            <button
-              key={sub.id}
-              className="btn category-btn me-2"
-              onClick={() => handleSubcategoryClick(sub)}
+          
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 1
+            }}
+          >
+            <CategoryButton
+              isSelected={selectedCategory === 'All'}
+              onClick={() => { setSelectedCategory('All'); setSelectedSub(null); }}
             >
-              {sub.subcategoryName}
-            </button>
-          ))}
-        </div>
-      )}
+              All Products
+            </CategoryButton>
+            {categories.map(cat => (
+              <CategoryButton
+                key={cat.id}
+                isSelected={selectedCategory.id === cat.id}
+                onClick={() => { setSelectedCategory(cat); setSelectedSub(null); }}
+              >
+                {cat.categoryName}
+              </CategoryButton>
+            ))}
+          </Box>
+        </Paper>
 
-      {/* Product grid */}
-      <div className="container mt-4 pd-4">
-        <h5 className="text-start mb-1">
-          {selectedCategory === 'All'
-            ? 'ALL PRODUCTS'
-            : selectedCategory.categoryName}
-          {selectedSubcategory
-            ? ` - ${selectedSubcategory.subcategoryName}`
-            : ''}
-        </h5>
+        {/* Enhanced Subcategories Navigation */}
+        {selectedCategory !== 'All' && subsOf(selectedCategory).length > 0 && (
+          <Paper
+            elevation={4}
+            sx={{
+              background: 'linear-gradient(135deg, #fafbfc 0%, #f5f6fa 100%)',
+              border: '1px solid rgba(0,0,0,0.06)',
+              borderRadius: '8px',
+              p: 2.5,
+              mb: 3,
+              boxShadow: '0 6px 20px rgba(0,0,0,0.06)'
+            }}
+          >
+            <SubcategoryTitle>
+              Explore {selectedCategory.categoryName}
+            </SubcategoryTitle>
+            
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 1,
+                mt: 1.5
+              }}
+            >
+              {subsOf(selectedCategory).map(sc => (
+                <SubcategoryButton
+                  key={sc.id}
+                  isSelected={selectedSub?.id === sc.id}
+                  onClick={() => setSelectedSub(selectedSub?.id === sc.id ? null : sc)}
+                >
+                  {sc.subcategoryName}
+                </SubcategoryButton>
+              ))}
+            </Box>
+          </Paper>
+        )}
 
-        {filteredProducts.length === 0 ? (
-          <p className="text-center">No products found.</p>
-        ) : (
-          <div className="row">
-            <Suspense
-              fallback={
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    height: '200px',
-                    width: '100%'
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'repeat(2, 1fr)',
+              sm: 'repeat(3, 1fr)',
+              md: 'repeat(4, 1fr)',
+              lg: 'repeat(6, 1fr)'
+            },
+            gap: 3,
+            mt: 4,
+            justifyContent: 'center'
+          }}
+        >
+          {filtered.length === 0 ? (
+            <Typography align="center" sx={{ gridColumn: '1/-1', fontSize: '1.3rem' }}>
+              No products found.
+            </Typography>
+          ) : (
+            <Suspense fallback={<CircularProgress sx={{ gridColumn: '1/-1', justifySelf: 'center' }} />}>
+              {filtered.map(p => (
+                <Box
+                  key={p.id}
+                  onClick={() => {
+                    const ic = cart[p.id];
+                    setModalProd({ ...p, quantity: ic ? ic.quantity : 1 });
+                    setShowModal(true);
                   }}
                 >
-                  <CircularProgress />
-                </div>
-              }
-            >
-              {filteredProducts.map(product => (
-                <div
-                  className="col-6 col-md-3 col-lg-2 mb-1"
-                  key={product.id}
-                  onClick={() => handleProductClick(product)}
-                >
-                  <ProductContainer product={product} />
-                </div>
+                  <ProductContainer product={p} />
+                </Box>
               ))}
             </Suspense>
-          </div>
-        )}
-      </div>
+          )}
+        </Box>
+      </CenteredContainer>
 
-      {/* Add‑to‑Cart Modal */}
-      <Modal show={modalShow} onHide={closeModal} centered>
-        {modalProduct && (
+      <Box component="footer" sx={{ mt: 'auto', py: 2, textAlign: 'center', bgcolor: 'background.paper' }}>
+        <Typography variant="body2">Contact: 0704288802</Typography>
+        <Typography variant="body2">
+          <a href="/terms-and-conditions">Terms &amp; Conditions</a> |{' '}
+          <a href="/privacy-policy">Privacy Policy</a>
+        </Typography>
+        <Typography variant="caption">© {new Date().getFullYear()} All rights reserved.</Typography>
+      </Box>
+
+      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+        {modalProd && (
           <>
             <Modal.Header closeButton>
-              <Modal.Title>{modalProduct.name}</Modal.Title>
+              <Modal.Title>{modalProd.name}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
               <Row>
                 <Col xs={6}>
                   <img
-                    src={
-                      modalProduct.productimages?.[0]?.imageUrl ||
-                      'placeholder.jpg'
-                    }
-                    alt={modalProduct.name}
-                    style={{ maxWidth: '100%', maxHeight: '200px' }}
-                    loading="lazy"
+                    src={modalProd.imageUrl || 'placeholder.jpg'}
+                    alt={modalProd.name}
+                    style={{ width: '100%', maxHeight: 240, objectFit: 'cover' }}
+                    onLoad={() => handleImageLoad(modalProd.id, modalProd.name)}
+                    onError={() => handleImageError(modalProd.id, modalProd.name)}
                   />
                 </Col>
                 <Col xs={6}>
-                  <h5>Price: KSH {modalProduct.price}</h5>
-                  <div className="d-flex align-items-center mt-3">
+                  <Typography variant="h6">KSH {modalProd.price}</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
                     <Button
-                      variant="primary"
+                      variant="outline-primary"
                       size="sm"
                       className="me-2"
-                      onClick={() =>
-                        setModalProduct(prev => ({
-                          ...prev,
-                          quantity: Math.max(1, prev.quantity - 1)
-                        }))
-                      }
-                    >
-                      -
-                    </Button>
-                    <span>{modalProduct.quantity}</span>
+                      onClick={() => setModalProd(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))}
+                    >−</Button>
+                    <Typography sx={{ fontSize: '1.1rem' }}>{modalProd.quantity}</Typography>
                     <Button
-                      variant="primary"
+                      variant="outline-primary"
                       size="sm"
                       className="ms-2"
-                      onClick={() =>
-                        setModalProduct(prev => ({
-                          ...prev,
-                          quantity: prev.quantity + 1
-                        }))
-                      }
-                    >
-                      +
-                    </Button>
-                  </div>
-                  <Button
-                    variant="primary"
-                    className="mt-3 w-100"
-                    onClick={handleAddToCart}
-                  >
+                      onClick={() => setModalProd(p => ({ ...p, quantity: p.quantity + 1 }))}
+                    >+</Button>
+                  </Box>
+                  <Button variant="primary" className="mt-3 w-100" onClick={onAdd}>
                     Update Cart
                   </Button>
                 </Col>
@@ -311,19 +354,9 @@ function Index() {
         )}
       </Modal>
 
-      {/* Global loading backdrop */}
-      <Backdrop
-        sx={{
-          color: '#fff',
-          zIndex: theme => theme.zIndex.drawer + 1,
-          flexDirection: 'column'
-        }}
-        open={loading}
-      >
+      <Backdrop sx={{ color: '#fff', zIndex: t => t.zIndex.drawer + 1 }} open={loading}>
         <CircularProgress color="inherit" size={60} />
       </Backdrop>
-    </div>
+    </Box>
   );
 }
-
-export default Index;
