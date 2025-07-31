@@ -1,6 +1,11 @@
+// src/pages/ProductIndex.js
+
 import React, { useState, useEffect, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProductsAndRelated } from '../../redux/slices/productsSlice';
+import {
+  fetchProductsAndRelated,
+  loadAllProductImages
+} from '../../redux/slices/productsSlice';
 import NavBar from '../../components/Nav';
 import ProductContainer from '../../components/ProductContainer';
 import successToast from '../UserNotifications/successToast';
@@ -21,91 +26,77 @@ import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Row, Col } from 'react-bootstrap';
 
+// — Compact Container —
 const CenteredContainer = styled(MuiContainer)({
   maxWidth: '1400px',
   margin: '0 auto',
-  paddingTop: '24px',
-  paddingBottom: '24px'
+  paddingTop: '16px',
+  paddingBottom: '16px'
 });
 
-// Professional category button styling
-const CategoryButton = styled(MuiButton)(({ theme, isSelected }) => ({
+// — Slimmer Category Pills —
+const CategoryButton = styled(MuiButton)(({ isSelected }) => ({
   fontWeight: 600,
-  fontSize: '1rem',
+  fontSize: '0.9rem',
   textTransform: 'none',
-  padding: '8px 20px',
-  margin: '3px',
+  padding: '4px 16px',
+  margin: '2px',
   borderRadius: 0,
-  border: 'none',
   borderBottom: isSelected ? '3px solid #1976d2' : '3px solid transparent',
-  backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+  backgroundColor: isSelected ? 'rgba(25,118,210,0.08)' : 'transparent',
   color: isSelected ? '#1976d2' : '#424242',
+  minHeight: '32px',
   transition: 'all 0.3s ease',
-  position: 'relative',
-  minHeight: '40px',
   '&:hover': {
-    backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.12)' : 'rgba(66, 66, 66, 0.04)',
-    borderBottom: isSelected ? '3px solid #1976d2' : '3px solid rgba(25, 118, 210, 0.3)',
+    backgroundColor: isSelected
+      ? 'rgba(25,118,210,0.12)'
+      : 'rgba(66,66,66,0.04)',
     transform: 'translateY(-1px)',
     boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-  },
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    bottom: '-3px',
-    left: '50%',
-    width: isSelected ? '100%' : '0%',
-    height: '3px',
-    backgroundColor: '#1976d2',
-    transform: 'translateX(-50%)',
-    transition: 'width 0.3s ease'
   }
 }));
 
-// Professional subcategory button styling
-const SubcategoryButton = styled(MuiButton)(({ theme, isSelected }) => ({
+// — Slimmer Subcategory Pills —
+const SubcategoryButton = styled(MuiButton)(({ isSelected }) => ({
   fontWeight: 500,
-  fontSize: '0.95rem',
+  fontSize: '0.85rem',
   textTransform: 'none',
-  padding: '6px 16px',
-  margin: '3px 6px',
+  padding: '4px 12px',
+  margin: '2px 4px',
   borderRadius: 0,
-  border: 'none',
   borderLeft: isSelected ? '4px solid #1976d2' : '4px solid transparent',
-  backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.06)' : 'rgba(245, 245, 245, 0.8)',
+  backgroundColor: isSelected ? 'rgba(25,118,210,0.06)' : 'rgba(245,245,245,0.8)',
   color: isSelected ? '#1976d2' : '#555',
+  minHeight: '32px',
   transition: 'all 0.25s ease',
-  minWidth: '120px',
-  minHeight: '36px',
   '&:hover': {
-    backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.1)' : 'rgba(25, 118, 210, 0.04)',
-    borderLeft: isSelected ? '4px solid #1976d2' : '4px solid rgba(25, 118, 210, 0.4)',
+    backgroundColor: isSelected
+      ? 'rgba(25,118,210,0.1)'
+      : 'rgba(25,118,210,0.04)',
     transform: 'translateX(2px)',
     boxShadow: '2px 2px 6px rgba(0,0,0,0.08)'
   }
 }));
 
-// Professional subcategory title styling
-const SubcategoryTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.3rem',
+const SubcategoryTitle = styled(Typography)({
+  fontSize: '1.2rem',
   fontWeight: 700,
   color: '#2c3e50',
   textAlign: 'center',
-  marginBottom: '16px',
+  marginBottom: '12px',
   position: 'relative',
-  letterSpacing: '0.5px',
   '&::after': {
     content: '""',
     position: 'absolute',
-    bottom: '-6px',
+    bottom: '-4px',
     left: '50%',
     transform: 'translateX(-50%)',
-    width: '70px',
+    width: '60px',
     height: '2px',
     background: 'linear-gradient(90deg, #1976d2, #42a5f5)',
     borderRadius: '2px'
   }
-}));
+});
 
 export default function ProductIndex() {
   const dispatch = useDispatch();
@@ -119,10 +110,19 @@ export default function ProductIndex() {
   const [showModal, setShowModal] = useState(false);
   const [modalProd, setModalProd] = useState(null);
 
+  // 1) Fetch products + related on mount
   useEffect(() => {
     dispatch(fetchProductsAndRelated());
   }, [dispatch]);
 
+  // 2) Once products arrive, batch-load their images
+  useEffect(() => {
+    if (products.length) {
+      dispatch(loadAllProductImages());
+    }
+  }, [dispatch, products]);
+
+  // Filter whenever dependencies change
   useEffect(() => {
     let list = products;
     if (selectedCategory !== 'All') {
@@ -149,11 +149,10 @@ export default function ProductIndex() {
   };
 
   const handleImageLoad = (productId, productName) => {
-    console.log(`Successfully loaded image for product: ${productName} (ID: ${productId})`);
+    console.log(`Loaded image for ${productName} (${productId})`);
   };
-
   const handleImageError = (productId, productName) => {
-    console.error(`Failed to load image for product: ${productName} (ID: ${productId})`);
+    console.error(`Image error for ${productName} (${productId})`);
   };
 
   return (
@@ -161,51 +160,41 @@ export default function ProductIndex() {
       <NavBar />
 
       <CenteredContainer>
+        {/* — More Compact Search Field — */}
         <TextField
           fullWidth
           placeholder="Search products..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           variant="outlined"
-          sx={{ mb: 3 }}
-          InputProps={{ sx: { fontSize: '1.1rem', padding: '12px' } }}
+          sx={{ mb: 2 }}
+          InputProps={{
+            sx: {
+              fontSize: '1rem',
+              padding: '8px',
+              height: '3rem'
+            }
+          }}
         />
 
-        {/* Enhanced Categories Navigation */}
+        {/* Categories */}
         <Paper
-          elevation={6}
+          elevation={4}
           sx={{
             background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
             border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: '8px',
-            p: 2.5,
-            mb: 3,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.08)'
+            borderRadius: '6px',
+            p: 1.5,
+            mb: 2
           }}
         >
           <Typography
             variant="h6"
-            sx={{
-              textAlign: 'center',
-              mb: 1.5,
-              fontSize: '1.15rem',
-              fontWeight: 600,
-              color: '#2c3e50',
-              letterSpacing: '0.3px'
-            }}
+            sx={{ textAlign: 'center', mb: 1, fontSize: '1.1rem', fontWeight: 600 }}
           >
             Product Categories
           </Typography>
-          
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 1
-            }}
-          >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1 }}>
             <CategoryButton
               isSelected={selectedCategory === 'All'}
               onClick={() => { setSelectedCategory('All'); setSelectedSub(null); }}
@@ -224,33 +213,22 @@ export default function ProductIndex() {
           </Box>
         </Paper>
 
-        {/* Enhanced Subcategories Navigation */}
+        {/* Subcategories */}
         {selectedCategory !== 'All' && subsOf(selectedCategory).length > 0 && (
           <Paper
-            elevation={4}
+            elevation={2}
             sx={{
               background: 'linear-gradient(135deg, #fafbfc 0%, #f5f6fa 100%)',
               border: '1px solid rgba(0,0,0,0.06)',
-              borderRadius: '8px',
-              p: 2.5,
-              mb: 3,
-              boxShadow: '0 6px 20px rgba(0,0,0,0.06)'
+              borderRadius: '6px',
+              p: 1.5,
+              mb: 2
             }}
           >
             <SubcategoryTitle>
               Explore {selectedCategory.categoryName}
             </SubcategoryTitle>
-            
-            <Box
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: 1,
-                mt: 1.5
-              }}
-            >
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1 }}>
               {subsOf(selectedCategory).map(sc => (
                 <SubcategoryButton
                   key={sc.id}
@@ -264,22 +242,22 @@ export default function ProductIndex() {
           </Paper>
         )}
 
+        {/* Product Grid */}
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: {
-              xs: 'repeat(2, 1fr)',
-              sm: 'repeat(3, 1fr)',
-              md: 'repeat(4, 1fr)',
-              lg: 'repeat(6, 1fr)'
+              xs: 'repeat(2,1fr)',
+              sm: 'repeat(3,1fr)',
+              md: 'repeat(4,1fr)',
+              lg: 'repeat(6,1fr)'
             },
-            gap: 3,
-            mt: 4,
-            justifyContent: 'center'
+            gap: 2,
+            mt: 3
           }}
         >
           {filtered.length === 0 ? (
-            <Typography align="center" sx={{ gridColumn: '1/-1', fontSize: '1.3rem' }}>
+            <Typography align="center" sx={{ gridColumn: '1/-1' }}>
               No products found.
             </Typography>
           ) : (
@@ -301,15 +279,17 @@ export default function ProductIndex() {
         </Box>
       </CenteredContainer>
 
+      {/* Footer */}
       <Box component="footer" sx={{ mt: 'auto', py: 2, textAlign: 'center', bgcolor: 'background.paper' }}>
-        <Typography variant="body2">Contact: 0704288802</Typography>
+        <Typography variant="body2">Contact: 0704288802</Typography>
         <Typography variant="body2">
-          <a href="/terms-and-conditions">Terms &amp; Conditions</a> |{' '}
-          <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/terms-and-conditions">Terms & Conditions</a> |{' '}
+          <a href="/privacy-policy">Privacy Policy</a>
         </Typography>
         <Typography variant="caption">© {new Date().getFullYear()} All rights reserved.</Typography>
       </Box>
 
+      {/* Product Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         {modalProd && (
           <>
@@ -322,27 +302,30 @@ export default function ProductIndex() {
                   <img
                     src={modalProd.imageUrl || 'placeholder.jpg'}
                     alt={modalProd.name}
-                    style={{ width: '100%', maxHeight: 240, objectFit: 'cover' }}
+                    style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }}
                     onLoad={() => handleImageLoad(modalProd.id, modalProd.name)}
                     onError={() => handleImageError(modalProd.id, modalProd.name)}
                   />
                 </Col>
                 <Col xs={6}>
                   <Typography variant="h6">KSH {modalProd.price}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                     <Button
                       variant="outline-primary"
                       size="sm"
                       className="me-2"
                       onClick={() => setModalProd(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))}
-                    >−</Button>
-                    <Typography sx={{ fontSize: '1.1rem' }}>{modalProd.quantity}</Typography>
+                    >
+                      −
+                    </Button>
+                    <Typography sx={{ mx: 1 }}>{modalProd.quantity}</Typography>
                     <Button
                       variant="outline-primary"
                       size="sm"
-                      className="ms-2"
                       onClick={() => setModalProd(p => ({ ...p, quantity: p.quantity + 1 }))}
-                    >+</Button>
+                    >
+                      +
+                    </Button>
                   </Box>
                   <Button variant="primary" className="mt-3 w-100" onClick={onAdd}>
                     Update Cart
@@ -354,8 +337,9 @@ export default function ProductIndex() {
         )}
       </Modal>
 
-      <Backdrop sx={{ color: '#fff', zIndex: t => t.zIndex.drawer + 1 }} open={loading}>
-        <CircularProgress color="inherit" size={60} />
+      {/* Loading Backdrop */}
+      <Backdrop open={loading} sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}>
+        <CircularProgress color="inherit" size={50} />
       </Backdrop>
     </Box>
   );

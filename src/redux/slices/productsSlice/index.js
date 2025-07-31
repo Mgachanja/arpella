@@ -1,33 +1,39 @@
-// src/redux/slices/productsSlice.js
-
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { baseUrl } from '../../../constants/index';
 
-// Utility delay
-const wait = ms => new Promise(res => setTimeout(res, ms));
-
-// Thunk: fetch only products (de-duplicate by name, merge barcodes)
+// Fetch products and attach any initial product images
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
   async (_, { rejectWithValue }) => {
     try {
       const { data } = await axios.get(`${baseUrl}/products`);
       const map = new Map();
+
       data.forEach(item => {
-        if (map.has(item.name)) {
-          const existing = map.get(item.name);
-          if (item.barcode && !existing.barcodes.includes(item.barcode)) {
-            existing.barcodes.push(item.barcode);
-          }
-        } else {
-          map.set(item.name, {
+        const key = item.name;
+        const barcodes = item.barcodes ? [item.barcodes] : [];
+        const imgs = Array.isArray(item.productimages) ? item.productimages : [];
+        const primary = imgs.find(i => i.isPrimary) || imgs[0] || {};
+        const imageUrl = primary.imageUrl || null;
+        const imageId  = primary.id       || null;
+
+        if (!map.has(key)) {
+          map.set(key, {
             ...item,
-            barcodes: item.barcode ? [item.barcode] : [],
-            imageUrl: null
+            barcodes,
+            productimages: imgs,
+            imageUrl,
+            imageId
+          });
+        } else {
+          const ex = map.get(key);
+          barcodes.forEach(bc => {
+            if (!ex.barcodes.includes(bc)) ex.barcodes.push(bc);
           });
         }
       });
+
       return Array.from(map.values());
     } catch (err) {
       return rejectWithValue(err.response?.data || err.message);
@@ -35,41 +41,85 @@ export const fetchProducts = createAsyncThunk(
   }
 );
 
-// Thunk: fetch products + inventories + categories + subcategories
-export const fetchProductsAndRelated = createAsyncThunk(
-  'products/fetchAll',
-  async (_, { rejectWithValue }) => {
+// Fetch a single product's image on demand
+export const fetchProductImage = createAsyncThunk(
+  'products/fetchProductImage',
+  async (productId, { rejectWithValue }) => {
+    if (!productId) {
+      return rejectWithValue('Missing productId');
+    }
     try {
-      // products
+      const { data } = await axios.get(`${baseUrl}/product-image/${productId}`);
+      
+      // Handle different response structures
+      let imageData = data;
+      
+      if (Array.isArray(data) && data.length > 0) {
+        imageData = data[0];
+      } else if (data && typeof data === 'object' && data['0']) {
+        imageData = data['0'];
+      } else if (data && data.imageUrl) {
+        imageData = data;
+      }
+      
+      return { 
+        productId, 
+        imageUrl: imageData?.imageUrl || null,
+        id: imageData?.id || imageData?.imageId || null,
+        imageId: imageData?.imageId || imageData?.id || null,
+        isPrimary: imageData?.isPrimary || false,
+        ...imageData
+      };
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
+// Fetch products and related data
+export const fetchProductsAndRelated = createAsyncThunk(
+  'products/fetchProductsAndRelated',
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
       const prodRes = await axios.get(`${baseUrl}/products`);
       const map = new Map();
       prodRes.data.forEach(item => {
-        if (map.has(item.name)) {
-          const ex = map.get(item.name);
-          if (item.barcode && !ex.barcodes.includes(item.barcode)) {
-            ex.barcodes.push(item.barcode);
-          }
-        } else {
-          map.set(item.name, {
+        const key = item.name;
+        const barcodes = item.barcodes ? [item.barcodes] : [];
+        const imgs = Array.isArray(item.productimages) ? item.productimages : [];
+        const primary = imgs.find(i => i.isPrimary) || imgs[0] || {};
+        const imageUrl = primary.imageUrl || null;
+        const imageId  = primary.id       || null;
+
+        if (!map.has(key)) {
+          map.set(key, {
             ...item,
-            barcodes: item.barcode ? [item.barcode] : [],
-            imageUrl: null
+            barcodes,
+            productimages: imgs,
+            imageUrl,
+            imageId
+          });
+        } else {
+          const ex = map.get(key);
+          barcodes.forEach(bc => {
+            if (!ex.barcodes.includes(bc)) ex.barcodes.push(bc);
           });
         }
       });
       const products = Array.from(map.values());
+      dispatch(setProducts(products));
 
-      await wait(1500);
-      const invRes = await axios.get(`${baseUrl}/inventories`);
-      await wait(1500);
-      const catRes = await axios.get(`${baseUrl}/categories`);
-      await wait(1500);
-      const subRes = await axios.get(`${baseUrl}/subcategories`);
+      // Fetch related data in parallel
+      const [invRes, catRes, subRes] = await Promise.all([
+        axios.get(`${baseUrl}/inventories`),
+        axios.get(`${baseUrl}/categories`),
+        axios.get(`${baseUrl}/subcategories`)
+      ]);
 
       return {
         products,
         inventories: Array.isArray(invRes.data) ? invRes.data : [],
-        categories: Array.isArray(catRes.data) ? catRes.data : [],
+        categories:  Array.isArray(catRes.data) ? catRes.data : [],
         subcategories: Array.isArray(subRes.data) ? subRes.data : []
       };
     } catch (err) {
@@ -78,58 +128,52 @@ export const fetchProductsAndRelated = createAsyncThunk(
   }
 );
 
-// Thunk: fetch a single product's image URL
-export const fetchProductImage = createAsyncThunk(
-  'products/fetchImage',
-  async (productId, { rejectWithValue }) => {
-    try {
-      const { data } = await axios.get(`${baseUrl}/product-image/${productId}`);
-      // API returns { imageId, productId, imageUrl }
-      console.log(`Fetched image for product ${productId}:`, data);
-      return { 
-        productId: data.productId || productId, 
-        imageUrl: data.imageUrl,
-        imageId: data.imageId 
-      };
-    } catch (err) {
-      console.error(`Failed to fetch image for product ${productId}:`, err.message);
-      return rejectWithValue({ productId, message: err.message });
-    }
-  }
-);
-
-// Thunk: fetch multiple product images at once (batch fetch)
+// Batch-fetch images by ID
 export const fetchMultipleProductImages = createAsyncThunk(
-  'products/fetchMultipleImages',
-  async (productIds, { rejectWithValue }) => {
+  'products/fetchMultipleProductImages',
+  async (products, { rejectWithValue }) => {
+    const valid = products.filter(p => p.id);
     try {
-      const imagePromises = productIds.map(async (productId) => {
-        try {
-          const { data } = await axios.get(`${baseUrl}/product-image/${productId}`);
-          console.log(`Batch fetched image for product ${productId}:`, data);
-          return { 
-            productId: data.productId || productId, 
-            imageUrl: data.imageUrl,
-            imageId: data.imageId,
-            success: true
-          };
-        } catch (err) {
-          console.error(`Failed to batch fetch image for product ${productId}:`, err.message);
-          return { 
-            productId, 
-            success: false, 
-            error: err.message 
-          };
-        }
-      });
-
-      const results = await Promise.allSettled(imagePromises);
-      return results.map(result => result.status === 'fulfilled' ? result.value : result.reason);
+      const results = await Promise.all(
+        valid.map(p =>
+          axios
+            .get(`${baseUrl}/product-image/${p.id}`)
+            .then(res => ({ success: true, productId: p.id, ...res.data }))
+            .catch(err => ({ success: false, productId: p.id, error: err.message }))
+        )
+      );
+      return results;
     } catch (err) {
       return rejectWithValue(err.message);
     }
   }
 );
+
+// Orchestrate batch fetch + merge into state
+export const loadAllProductImages = () => async (dispatch, getState) => {
+  const { products } = getState().products;
+  const images = await dispatch(fetchMultipleProductImages(products)).unwrap();
+
+  const byId = images.reduce((acc, img) => {
+    if (img.success) {
+      (acc[img.productId] = acc[img.productId] || []).push(img);
+    }
+    return acc;
+  }, {});
+
+  const merged = products.map(p => {
+    const extra = byId[p.id] || [];
+    const primary = extra.find(i => i.isPrimary) || extra[0] || {};
+    return {
+      ...p,
+      productimages: [...p.productimages, ...extra],
+      imageUrl: primary.imageUrl  || p.imageUrl,
+      imageId:  primary.id        || p.imageId
+    };
+  });
+
+  dispatch(setProducts(merged));
+};
 
 const initialState = {
   products: [],
@@ -138,112 +182,145 @@ const initialState = {
   subcategories: [],
   loading: false,
   error: null,
-  imageLoadingStates: {} // Track image loading states per product
+  imageLoadingStates: {}
 };
 
 const productsSlice = createSlice({
   name: 'products',
   initialState,
   reducers: {
-    // Set image loading state for a product
-    setImageLoading: (state, { payload }) => {
-      const { productId, loading } = payload;
+    setProducts: (state, action) => {
+      state.products = action.payload;
+    },
+    setImageLoading: (state, { payload: { productId, loading } }) => {
       state.imageLoadingStates[productId] = loading;
     },
-    // Clear all image loading states
-    clearImageLoadingStates: (state) => {
+    clearImageLoadingStates: state => {
       state.imageLoadingStates = {};
     }
   },
   extraReducers: builder => {
-    // fetchProducts
     builder
-      .addCase(fetchProducts.pending, state => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchProducts.fulfilled, (state, { payload }) => {
-        state.loading = false;
-        state.products = payload;
-      })
-      .addCase(fetchProducts.rejected, (state, { payload }) => {
-        state.loading = false;
-        state.error = payload;
-      });
-
-    // fetchProductsAndRelated
-    builder
+      // Handle fetchProductsAndRelated
       .addCase(fetchProductsAndRelated.pending, state => {
-        state.loading = true;
+        state.loading = true; 
         state.error = null;
       })
       .addCase(fetchProductsAndRelated.fulfilled, (state, { payload }) => {
         state.loading = false;
-        state.products = payload.products;
-        state.inventories = payload.inventories;
-        state.categories = payload.categories;
+        state.inventories  = payload.inventories;
+        state.categories   = payload.categories;
         state.subcategories = payload.subcategories;
       })
       .addCase(fetchProductsAndRelated.rejected, (state, { payload }) => {
-        state.loading = false;
+        state.loading = false; 
         state.error = payload;
-      });
+      })
 
-    // fetchProductImage
-    builder
+      // Handle fetchProducts
+      .addCase(fetchProducts.pending, state => {
+        state.loading = true; 
+        state.error = null;
+      })
+      .addCase(fetchProducts.fulfilled, (state, { payload }) => {
+        state.loading = false; 
+        state.products = payload;
+      })
+      .addCase(fetchProducts.rejected, (state, { payload }) => {
+        state.loading = false; 
+        state.error = payload;
+      })
+
+      // Handle fetchProductImage
       .addCase(fetchProductImage.pending, (state, { meta }) => {
-        const productId = meta.arg;
-        state.imageLoadingStates[productId] = true;
+        state.imageLoadingStates[meta.arg] = true;
       })
       .addCase(fetchProductImage.fulfilled, (state, { payload }) => {
-        const { productId, imageUrl, imageId } = payload;
-        const prod = state.products.find(p => p.id === productId);
-        if (prod) {
-          prod.imageUrl = imageUrl;
-          prod.imageId = imageId;
-        }
-        state.imageLoadingStates[productId] = false;
-        console.log(`Successfully updated product ${productId} with image URL: ${imageUrl}`);
-      })
-      .addCase(fetchProductImage.rejected, (state, { payload }) => {
-        const { productId, message } = payload;
-        state.imageLoadingStates[productId] = false;
-        console.error(`Image load failed for product ${productId}:`, message);
-      });
+  const productIndex = state.products.findIndex(p => p.id === payload.productId);
+  if (productIndex !== -1) {
+    const product = state.products[productIndex];
+    
+    if (payload.imageUrl && (payload.id || payload.imageId)) {
+      const actualImageId = payload.id || payload.imageId;
+      const newImage = {
+        id: actualImageId,
+        imageId: actualImageId,
+        imageUrl: payload.imageUrl,
+        isPrimary: payload.isPrimary || false,
+        ...Object.fromEntries(
+          Object.entries(payload).filter(([key]) => key !== 'productId')
+        )
+      };
+      
+      const existingImageIndex = product.productimages.findIndex(img => 
+        img.id === actualImageId || img.imageId === actualImageId
+      );
+      if (existingImageIndex === -1) {
+        product.productimages.push(newImage);
+      } else {
+        product.productimages[existingImageIndex] = newImage;
+      }
+      
+      // Update imageUrl and imageId only if they are different
+      if (product.imageUrl !== payload.imageUrl) {
+        product.imageUrl = payload.imageUrl;
+      }
+      if (product.imageId !== actualImageId) {
+        product.imageId = actualImageId;
+      }
+    }
+  }
+  
+  state.imageLoadingStates[payload.productId] = false;
+})
 
-    // fetchMultipleProductImages
-    builder
+      .addCase(fetchProductImage.rejected, (state, { meta }) => {
+        state.imageLoadingStates[meta.arg] = false;
+      })
+
+      // Handle fetchMultipleProductImages
       .addCase(fetchMultipleProductImages.pending, (state, { meta }) => {
-        const productIds = meta.arg;
-        productIds.forEach(productId => {
-          state.imageLoadingStates[productId] = true;
+        meta.arg.forEach(p => { 
+          state.imageLoadingStates[p.id] = true; 
         });
       })
       .addCase(fetchMultipleProductImages.fulfilled, (state, { payload }) => {
-        payload.forEach(result => {
-          if (result.success) {
-            const { productId, imageUrl, imageId } = result;
-            const prod = state.products.find(p => p.id === productId);
-            if (prod) {
-              prod.imageUrl = imageUrl;
-              prod.imageId = imageId;
+        payload.forEach(imageResult => {
+          state.imageLoadingStates[imageResult.productId] = false;
+          
+          if (imageResult.success) {
+            const productIndex = state.products.findIndex(p => p.id === imageResult.productId);
+            if (productIndex !== -1) {
+              const product = state.products[productIndex];
+              const newImage = {
+                id: imageResult.id,
+                imageUrl: imageResult.imageUrl,
+                isPrimary: imageResult.isPrimary || false,
+                ...imageResult
+              };
+              
+              const existingImageIndex = product.productimages.findIndex(img => img.id === newImage.id);
+              if (existingImageIndex === -1) {
+                product.productimages.push(newImage);
+              } else {
+                product.productimages[existingImageIndex] = newImage;
+              }
+              
+              if (newImage.isPrimary || !product.imageUrl) {
+                product.imageUrl = imageResult.imageUrl;
+                product.imageId = imageResult.id;
+              }
             }
-            state.imageLoadingStates[productId] = false;
-            console.log(`Batch update: Successfully updated product ${productId} with image URL: ${imageUrl}`);
-          } else {
-            state.imageLoadingStates[result.productId] = false;
-            console.error(`Batch update: Image load failed for product ${result.productId}:`, result.error);
           }
         });
       })
       .addCase(fetchMultipleProductImages.rejected, (state, { meta }) => {
-        const productIds = meta.arg;
-        productIds.forEach(productId => {
-          state.imageLoadingStates[productId] = false;
+        meta.arg.forEach(p => { 
+          state.imageLoadingStates[p.id] = false; 
         });
       });
   }
 });
 
-export const { setImageLoading, clearImageLoadingStates } = productsSlice.actions;
+export const { setProducts, setImageLoading, clearImageLoadingStates } = productsSlice.actions;
 export default productsSlice.reducer;

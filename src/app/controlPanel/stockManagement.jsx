@@ -13,7 +13,7 @@ import {
 import { toast } from "react-toastify";
 import axios from "axios";
 import {baseUrl} from "../../constants";
-import { Backdrop, Box, CircularProgress ,Delete} from "@mui/material";
+import { Backdrop, Box, CircularProgress } from "@mui/material";
 import { FaPencilAlt , FaTrash } from "react-icons/fa";
 import { fetchProducts } from "../../redux/slices/productsSlice";
 const StockManagement = () => {
@@ -33,7 +33,6 @@ const StockManagement = () => {
   const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
   // Toast and loading states
   const [isLoading, setIsLoading] = useState(false);
-  const [stocks, setStocks] = useState([]);
 
   const [stockMeta, setStockMeta] = useState({
   invoiceNumber: '',
@@ -179,6 +178,20 @@ const fetchData = async () => {
 
   } catch (error) {
     showToastMessage("Failed to fetch data: " + (error.message || "Unknown error"), "danger");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const fetchSubCategories = async () => {
+  setIsLoading(true);
+  try {
+    const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
+      headers: { "Content-Type": "application/json" }
+    });
+    setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
+  } catch (error) {
+    showToastMessage("Failed to fetch subcategories: " + (error.message || "Unknown error"), "danger");
   } finally {
     setIsLoading(false);
   }
@@ -499,10 +512,8 @@ const fetchData = async () => {
       }, {
         headers: { "Content-Type": "multipart/form-data" }
       });
-      showToastMessage("Image uploaded successfully");
+      showToastMessage("Image uploaded successfully" , "success");
       setShowImageUploadModal(false);
-      resetForms();
-      fetchData();
     } catch (error) {
       showToastMessage("Failed to upload image: " + (error.response?.data?.message || error.message), "danger");
     } finally {
@@ -571,8 +582,8 @@ const fetchData = async () => {
   };
 
   useEffect(() => {
-    fetchTaxData();
-  }, []);
+    fetchSubCategories()
+  }, [subCategories.length]);
 
     const fetchInvoices = async () => {
     const res = await axios.get(`${baseUrl}/invoices`);
@@ -1819,7 +1830,7 @@ const addRestockEntry = () => {
               >
                 <option value="">Select a product</option>
                 {products.map(product => (
-                  <option key={product.id} value={product.inventoryId}>
+                  <option key={product.id} value={product.id}>
                     {product.name}
                   </option>
                 ))}

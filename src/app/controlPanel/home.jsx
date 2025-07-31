@@ -13,7 +13,7 @@ import {
 } from 'chart.js';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchStaffMembers, selectStaffCount } from '../../redux/slices/staffSlice';
-import { fetchProductsAndRelated } from '../../redux/slices/productsSlice'; // our modified async thunk
+import { fetchProductsAndRelated } from '../../redux/slices/productsSlice';
 import {
   Container,
   Row,
@@ -41,34 +41,38 @@ ChartJS.register(
 const Home = () => {
   const dispatch = useDispatch();
   const staffCount = useSelector(selectStaffCount);
+  const { user } = useSelector(state => state.auth);
 
-  // Get products, inventories, categories, and subcategories from Redux
   const { products, inventories, categories, subcategories, loading, error } = useSelector(
-    (state) => state.products
+    state => state.products
   );
 
-  // Filter state – using category id as string; "All" means no filtering.
   const [salesCategory, setSalesCategory] = useState('All');
   const [inventoryCategory, setInventoryCategory] = useState('All');
-
-  // Modal state for low-stock items
   const [showLowStockModal, setShowLowStockModal] = useState(false);
-
-  // Toast state
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVariant, setToastVariant] = useState('success');
 
-  // Base API URL (already used in the slice)
-  // const baseUrl = process.env.REACT_APP_BASE_API_URL;
+  // dynamic greeting & clock
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+  const hour = now.getHours();
+  const greet =
+    hour < 12 ? 'Good morning' :
+    hour < 18 ? 'Good afternoon' :
+    'Good evening';
+  const name = user?.firstName || user?.username || 'User';
+  const timeString = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-  // Fetch our data on mount
   useEffect(() => {
     dispatch(fetchStaffMembers());
     dispatch(fetchProductsAndRelated());
   }, [dispatch]);
 
-  // Show error toast if error exists
   useEffect(() => {
     if (error) {
       setToastMessage("Error: " + error);
@@ -77,70 +81,58 @@ const Home = () => {
     }
   }, [error]);
 
-  // Merge products with inventories using the condition:
-  // product.inventoryId === inventory.productId
   const mergedData = products.map(prod => {
     const inv = inventories.find(item => item.productId === prod.inventoryId);
     return {
       ...prod,
       stockQuantity: inv ? inv.stockQuantity : 0,
       stockThreshold: inv ? inv.stockThreshold : 0,
-      // If no Sales property, simulate sales as price * 10
       sales: prod.Sales !== undefined ? prod.Sales : prod.price * 10,
     };
   });
 
-  // Filtering helper: if filter is "All", return full data; else filter by product.category (which is a number)
-  const filterData = (data, selectedCategory) => {
-    if (selectedCategory === "All") return data;
-    return data.filter(item => Number(item.category) === Number(selectedCategory));
-  };
+  const filterData = (data, selectedCategory) =>
+    selectedCategory === "All"
+      ? data
+      : data.filter(item => Number(item.category) === Number(selectedCategory));
 
   const filteredSalesData = filterData(mergedData, salesCategory);
   const filteredInventoryData = filterData(mergedData, inventoryCategory);
 
-  // Prepare chart data objects
   const salesChartData = {
     labels: filteredSalesData.map(item => item.name),
-    datasets: [
-      {
-        label: 'Sales ($)',
-        data: filteredSalesData.map(item => item.sales),
-        backgroundColor: 'rgba(75, 192, 192, 1)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 2,
-        tension: 0.1,
-      }
-    ]
+    datasets: [{
+      label: 'Sales ($)',
+      data: filteredSalesData.map(item => item.sales),
+      backgroundColor: 'rgba(75, 192, 192, 1)',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      borderWidth: 2,
+      tension: 0.1,
+    }]
   };
 
   const stocksChartData = {
     labels: filteredInventoryData.map(item => item.name),
-    datasets: [
-      {
-        label: 'Stock Quantity',
-        data: filteredInventoryData.map(item => item.stockQuantity),
-        backgroundColor: 'rgba(153, 102, 255, 0.5)',
-        borderColor: 'rgba(153, 102, 255, 1)',
-        borderWidth: 1,
-      }
-    ]
+    datasets: [{
+      label: 'Stock Quantity',
+      data: filteredInventoryData.map(item => item.stockQuantity),
+      backgroundColor: 'rgba(153, 102, 255, 0.5)',
+      borderColor: 'rgba(153, 102, 255, 1)',
+      borderWidth: 1,
+    }]
   };
 
   const totalSales = filteredSalesData.reduce((acc, item) => acc + item.sales, 0);
 
-  // Compute low-stock items: where (stockThreshold - stockQuantity) <= 6
-  const lowStockItems = mergedData.filter(item => {
-    if (item.stockThreshold && item.stockQuantity !== undefined) {
-      return (item.stockThreshold - item.stockQuantity) <= 6;
-    }
-    return false;
-  });
+  const lowStockItems = mergedData.filter(item =>
+    item.stockThreshold && item.stockQuantity !== undefined
+      ? (item.stockThreshold - item.stockQuantity) <= 6
+      : false
+  );
   const lowStockCount = lowStockItems.length;
 
   return (
     <div>
-      {/* Toast Notification */}
       <ToastContainer position="top-end" className="p-3" style={{ zIndex: 9999 }}>
         <Toast
           onClose={() => setShowToast(false)}
@@ -154,8 +146,18 @@ const Home = () => {
         </Toast>
       </ToastContainer>
 
+      {/* Floating greeting card */}
       <Container className="mt-4">
-        <h2>Good morning, Arpella Stores</h2>
+        <Card className="p-3 mb-4 shadow-sm" style={{ background: 'white' }}>
+          <Row className="align-items-center">
+            <Col>
+              <h2 className="mb-0">{greet}, {name}</h2>
+            </Col>
+            <Col className="text-end">
+              <h5 className="mb-0">{timeString}</h5>
+            </Col>
+          </Row>
+        </Card>
       </Container>
 
       {/* Stats Cards */}
@@ -170,7 +172,11 @@ const Home = () => {
             </Card>
           </Col>
           <Col md={3}>
-            <Card className="p-3 text-center" style={{ cursor: 'pointer' }} onClick={() => setShowLowStockModal(true)}>
+            <Card
+              className="p-3 text-center"
+              style={{ cursor: 'pointer' }}
+              onClick={() => setShowLowStockModal(true)}
+            >
               <Card.Body>
                 <Card.Title>Low-Stock Items</Card.Title>
                 <Card.Text>{lowStockCount}</Card.Text>
@@ -200,11 +206,11 @@ const Home = () => {
       <Container className="mb-4">
         <h5>Sales Overview</h5>
         <div className="mb-3">
-          <Form.Select value={salesCategory} onChange={(e) => setSalesCategory(e.target.value)}>
+          <Form.Select value={salesCategory} onChange={e => setSalesCategory(e.target.value)}>
             <option value="All">All</option>
-            {categories.map((cat) => (
+            {categories.map(cat =>
               cat.categoryName && <option key={cat.id} value={cat.id}>{cat.categoryName}</option>
-            ))}
+            )}
           </Form.Select>
         </div>
         <Card className="p-3">
@@ -216,11 +222,11 @@ const Home = () => {
       <Container className="mb-4">
         <h5>Stocks Management</h5>
         <div className="mb-3">
-          <Form.Select value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
+          <Form.Select value={inventoryCategory} onChange={e => setInventoryCategory(e.target.value)}>
             <option value="All">All</option>
-            {categories.map((cat) => (
+            {categories.map(cat =>
               cat.categoryName && <option key={cat.id} value={cat.id}>{cat.categoryName}</option>
-            ))}
+            )}
           </Form.Select>
         </div>
         <Card className="p-3">

@@ -5,7 +5,7 @@ export const addStaff = async (staffData) => {
     firstName: staffData.FirstName,
     lastName: staffData.LastName,
     PhoneNumber: staffData.phoneNumber,
-    Email: staffData.Email,
+    email: staffData.Email,
     passwordHash: staffData.password
   };
   const requestData = {
