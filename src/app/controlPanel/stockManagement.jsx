@@ -112,6 +112,12 @@ const [restockEntries, setRestockEntries] = useState([
   { productId: "", restockQuantity: "", purchasePrice: "" },
 ]);
 
+const [invoiceForm, setInvoiceForm] = useState({
+  invoiceId: '',
+  totalAmount: '',
+  supplierId: ''
+});
+
   // Data arrays
   const [inventories, setInventories] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -321,7 +327,6 @@ const fetchSubCategories = async () => {
       setShowEditStockModal(false);
       setEditStockData(null);
       resetForms();
-      fetchData();
     } catch (error) {
       showToastMessage("Failed to update stock: " + (error.response?.data?.message || error.message), "danger");
     } finally {
@@ -520,27 +525,42 @@ const fetchSubCategories = async () => {
       setIsLoading(false);
     }
   };
-
   // Handle Stock Excel upload
   const handleUploadStockExcel = async () => {
-    if (!stockExcelFile) return;
-    try {
-      setIsLoading(true);
-      const formData = new FormData();
-      formData.append("file", stockExcelFile);
-      await axios.post(`${baseUrl}/products`, formData, {
+  // Guard clause: nothing to do if no file selected
+  if (!stockExcelFile) return;
+
+  console.log("Preparing to upload stock Excel:", stockExcelFile);
+
+  try {
+    setIsLoading(true);
+
+    // Build multipart/form-data payload
+    const formData = new FormData();
+    formData.append("excelFile", stockExcelFile); // <-- Must match [FromForm] IFormFile excelFile
+
+    // Execute the POST
+    const response = await axios.post(
+      `${baseUrl}inventories`,
+      formData,
+      {
         headers: { "Content-Type": "multipart/form-data" }
-      });
-      showToastMessage("Stock Excel uploaded successfully");
-      setShowStockExcelModal(false);
-      setStockExcelFile(null);
-      fetchData();
-    } catch (error) {
-      showToastMessage("Failed to upload Stock Excel: " + (error.response?.data?.message || error.message), "danger");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      }
+    );
+
+    console.log("Upload succeeded:", response.data);
+    showToastMessage("Stock Excel uploaded successfully");
+    setShowStockExcelModal(false);
+
+  } catch (error) {
+    console.error("Upload failed:", error);
+    const msg = error.response?.data?.message || error.message;
+    showToastMessage(`Failed to upload Stock Excel: ${msg}`, "danger");
+
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Handle Products Excel upload
   const handleUploadProductsExcel = async () => {
@@ -555,7 +575,6 @@ const fetchSubCategories = async () => {
       showToastMessage("Products Excel uploaded successfully");
       setShowProductsExcelModal(false);
       setProductsExcelFile(null);
-      fetchData();
     } catch (error) {
       showToastMessage("Failed to upload Products Excel: " + (error.response?.data?.message || error.message), "danger");
     } finally {
@@ -596,10 +615,10 @@ const fetchSubCategories = async () => {
   };
 
   // handlers for adding
- const handleAddInvoice = async () => {
+ const handleAddInvoice = async (invoiceForm) => {
     setIsLoading(true);
-    console.log(invoices);
-    await axios.post(`${baseUrl}/invoice`, invoices);
+    console.log(invoiceForm);
+    await axios.post(`${baseUrl}/invoice`, invoiceForm);
     setShowInvoiceModal(false);
     setIsLoading(false);
  }
@@ -761,6 +780,7 @@ const addRestockEntry = () => {
               <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowRestockModal(true)}>Add Restock Data</Button>
               <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={fetchInvoices}>View Invoices</Button>
               <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
+              <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowStockExcelModal(true)}>upload stock excel sheet</Button>
             </Box>
           
 
@@ -1337,7 +1357,7 @@ const addRestockEntry = () => {
           <Form
               onSubmit={e => {
                 e.preventDefault();
-                handleAddInvoice();
+                handleAddInvoice(invoiceForm);
               }}
             >
         <Modal.Header closeButton>
@@ -1346,16 +1366,16 @@ const addRestockEntry = () => {
         <Modal.Body>
           <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Invoice Number</Form.Label>
-              <Form.Control type="text" value={invoices.invoiceId} onChange={(e) => setInvoices({ ...invoices, invoiceId: e.target.value })} />
+              <Form.Control type="text" value={invoiceForm.invoiceId} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceId: e.target.value })} />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Total Amount</Form.Label>
-              <Form.Control type="number" value={invoices.totalAmount} onChange={(e) => setInvoices({ ...invoices, totalAmount: e.target.value })} />
+              <Form.Control type="text" value={invoiceForm.totalAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, totalAmount: e.target.value })} />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label className="fw-bold">Supplier</Form.Label>
               <div className="d-flex align-items-center">
-                <Form.Select value={stockData.supplierId} onChange={(e) => setInvoices({ ...invoices, supplierId: e.target.value })}>
+                <Form.Select value={invoiceForm.supplierId} onChange={(e) => setInvoiceForm({ ...invoiceForm, supplierId: e.target.value })}>
                   <option value="">Select a supplier</option>
                   {supplierData.map(supplier => (
                     <option key={supplier.id} value={supplier.id}>

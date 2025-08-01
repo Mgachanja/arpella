@@ -2,10 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  fetchProductsAndRelated,
-  loadAllProductImages
-} from '../../redux/slices/productsSlice';
+import { fetchProductsAndRelated } from '../../redux/slices/productsSlice';
 import NavBar from '../../components/Nav';
 import ProductContainer from '../../components/ProductContainer';
 import successToast from '../UserNotifications/successToast';
@@ -19,14 +16,15 @@ import {
   Typography,
   TextField,
   Container as MuiContainer,
-  Button as MuiButton
+  Button as MuiButton,
+  Alert
 } from '@mui/material';
 import { styled } from '@mui/system';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Row, Col } from 'react-bootstrap';
 
-// — Compact Container —
+// Styled container for consistent layout width
 const CenteredContainer = styled(MuiContainer)({
   maxWidth: '1400px',
   margin: '0 auto',
@@ -34,7 +32,7 @@ const CenteredContainer = styled(MuiContainer)({
   paddingBottom: '16px'
 });
 
-// — Slimmer Category Pills —
+// Styled category selection buttons
 const CategoryButton = styled(MuiButton)(({ isSelected }) => ({
   fontWeight: 600,
   fontSize: '0.9rem',
@@ -56,7 +54,7 @@ const CategoryButton = styled(MuiButton)(({ isSelected }) => ({
   }
 }));
 
-// — Slimmer Subcategory Pills —
+// Styled subcategory buttons for visual hierarchy
 const SubcategoryButton = styled(MuiButton)(({ isSelected }) => ({
   fontWeight: 500,
   fontSize: '0.85rem',
@@ -78,6 +76,7 @@ const SubcategoryButton = styled(MuiButton)(({ isSelected }) => ({
   }
 }));
 
+// Section title styling for subcategories
 const SubcategoryTitle = styled(Typography)({
   fontSize: '1.2rem',
   fontWeight: 700,
@@ -100,7 +99,7 @@ const SubcategoryTitle = styled(Typography)({
 
 export default function ProductIndex() {
   const dispatch = useDispatch();
-  const { products, categories, subcategories, loading } = useSelector(s => s.products);
+  const { products, categories, subcategories, loading, error } = useSelector(s => s.products);
   const cart = useSelector(s => s.cart.items);
 
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -110,19 +109,12 @@ export default function ProductIndex() {
   const [showModal, setShowModal] = useState(false);
   const [modalProd, setModalProd] = useState(null);
 
-  // 1) Fetch products + related on mount
+  // Initialize data fetch for products and related categories
   useEffect(() => {
     dispatch(fetchProductsAndRelated());
   }, [dispatch]);
 
-  // 2) Once products arrive, batch-load their images
-  useEffect(() => {
-    if (products.length) {
-      dispatch(loadAllProductImages());
-    }
-  }, [dispatch, products]);
-
-  // Filter whenever dependencies change
+  // Trigger filtering logic when category/subcategory/search changes
   useEffect(() => {
     let list = products;
     if (selectedCategory !== 'All') {
@@ -133,7 +125,11 @@ export default function ProductIndex() {
     }
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
-      list = list.filter(p => p.name.toLowerCase().includes(t));
+      list = list.filter(p => 
+        p.name?.toLowerCase().includes(t) || 
+        p.categoryName?.toLowerCase().includes(t) ||
+        p.subcategoryName?.toLowerCase().includes(t)
+      );
     }
     setFiltered(list);
   }, [products, selectedCategory, selectedSub, searchTerm]);
@@ -141,9 +137,18 @@ export default function ProductIndex() {
   const subsOf = cat =>
     subcategories.filter(sc => sc.categoryId === cat.id);
 
+  // Add product to cart from modal
   const onAdd = () => {
     const id = modalProd.id || uuidv4();
-    dispatch(addItemToCart({ product: { id, quantity: modalProd.quantity } }));
+    dispatch(addItemToCart({ 
+      product: { 
+        id, 
+        quantity: modalProd.quantity,
+        name: modalProd.name,
+        price: modalProd.price,
+        imageUrl: modalProd.imageUrl
+      } 
+    }));
     successToast('Added to cart');
     setShowModal(false);
   };
@@ -151,19 +156,32 @@ export default function ProductIndex() {
   const handleImageLoad = (productId, productName) => {
     console.log(`Loaded image for ${productName} (${productId})`);
   };
+  
   const handleImageError = (productId, productName) => {
     console.error(`Image error for ${productName} (${productId})`);
   };
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <NavBar />
+        <CenteredContainer>
+          <Alert severity="error" sx={{ mt: 2 }}>
+            Error loading products: {error}
+          </Alert>
+        </CenteredContainer>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <NavBar />
 
       <CenteredContainer>
-        {/* — More Compact Search Field — */}
         <TextField
           fullWidth
-          placeholder="Search products..."
+          placeholder="Search products, categories..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           variant="outlined"
@@ -177,7 +195,6 @@ export default function ProductIndex() {
           }}
         />
 
-        {/* Categories */}
         <Paper
           elevation={4}
           sx={{
@@ -213,7 +230,6 @@ export default function ProductIndex() {
           </Box>
         </Paper>
 
-        {/* Subcategories */}
         {selectedCategory !== 'All' && subsOf(selectedCategory).length > 0 && (
           <Paper
             elevation={2}
@@ -242,7 +258,6 @@ export default function ProductIndex() {
           </Paper>
         )}
 
-        {/* Product Grid */}
         <Box
           sx={{
             display: 'grid',
@@ -257,8 +272,8 @@ export default function ProductIndex() {
           }}
         >
           {filtered.length === 0 ? (
-            <Typography align="center" sx={{ gridColumn: '1/-1' }}>
-              No products found.
+            <Typography align="center" sx={{ gridColumn: '1/-1', py: 4 }}>
+              {loading ? 'Loading products...' : 'No products found.'}
             </Typography>
           ) : (
             <Suspense fallback={<CircularProgress sx={{ gridColumn: '1/-1', justifySelf: 'center' }} />}>
@@ -270,6 +285,7 @@ export default function ProductIndex() {
                     setModalProd({ ...p, quantity: ic ? ic.quantity : 1 });
                     setShowModal(true);
                   }}
+                  sx={{ cursor: 'pointer' }}
                 >
                   <ProductContainer product={p} />
                 </Box>
@@ -279,17 +295,15 @@ export default function ProductIndex() {
         </Box>
       </CenteredContainer>
 
-      {/* Footer */}
       <Box component="footer" sx={{ mt: 'auto', py: 2, textAlign: 'center', bgcolor: 'background.paper' }}>
-        <Typography variant="body2">Contact: 0704288802</Typography>
+        <Typography variant="body2">Contact: 0704288802</Typography>
         <Typography variant="body2">
-          <a href="/terms-and-conditions">Terms & Conditions</a> |{' '}
-          <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/terms-and-conditions">Terms & Conditions</a> |{' '}
+          <a href="/privacy-policy">Privacy Policy</a>
         </Typography>
         <Typography variant="caption">© {new Date().getFullYear()} All rights reserved.</Typography>
       </Box>
 
-      {/* Product Modal */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         {modalProd && (
           <>
@@ -300,7 +314,7 @@ export default function ProductIndex() {
               <Row>
                 <Col xs={6}>
                   <img
-                    src={modalProd.imageUrl || 'placeholder.jpg'}
+                    src={modalProd.imageUrl || '/placeholder.jpg'}
                     alt={modalProd.name}
                     style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }}
                     onLoad={() => handleImageLoad(modalProd.id, modalProd.name)}
@@ -308,7 +322,7 @@ export default function ProductIndex() {
                   />
                 </Col>
                 <Col xs={6}>
-                  <Typography variant="h6">KSH {modalProd.price}</Typography>
+                  <Typography variant="h6">KSH {modalProd.price || 'N/A'}</Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                     <Button
                       variant="outline-primary"
@@ -337,7 +351,6 @@ export default function ProductIndex() {
         )}
       </Modal>
 
-      {/* Loading Backdrop */}
       <Backdrop open={loading} sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}>
         <CircularProgress color="inherit" size={50} />
       </Backdrop>
