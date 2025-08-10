@@ -1,8 +1,7 @@
 // src/pages/ProductIndex.js
-
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchProductsAndRelated } from '../../redux/slices/productsSlice';
+import { fetchProductsAndRelated, setProducts, fetchProductsApi } from '../../redux/slices/productsSlice';
 import NavBar from '../../components/Nav';
 import ProductContainer from '../../components/ProductContainer';
 import successToast from '../UserNotifications/successToast';
@@ -23,11 +22,14 @@ import { styled } from '@mui/system';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
 import { Row, Col } from 'react-bootstrap';
+import { useInfiniteQuery } from '@tanstack/react-query';
 
 // Styled container for consistent layout width
 const CenteredContainer = styled(MuiContainer)({
   maxWidth: '1400px',
   margin: '0 auto',
+  paddingLeft: '16px',
+  paddingRight: '16px',
   paddingTop: '16px',
   paddingBottom: '16px'
 });
@@ -97,6 +99,42 @@ const SubcategoryTitle = styled(Typography)({
   }
 });
 
+// Responsive products grid container with equal-sized containers
+const ProductsGrid = styled(Box)(({ theme }) => ({
+  display: 'grid',
+  width: '100%',
+  gap: '16px',
+  marginTop: '24px',
+  justifyContent: 'center',
+  justifyItems: 'center',
+  // Mobile: 2 columns with fixed width containers
+  gridTemplateColumns: 'repeat(2, 180px)',
+  
+  // Small tablets: 3 columns
+  '@media (min-width: 600px)': {
+    gridTemplateColumns: 'repeat(3, 180px)',
+    gap: '18px'
+  },
+  
+  // Tablets: 4 columns
+  '@media (min-width: 800px)': {
+    gridTemplateColumns: 'repeat(4, 180px)',
+    gap: '20px'
+  },
+  
+  // Desktop: 5 columns
+  '@media (min-width: 1000px)': {
+    gridTemplateColumns: 'repeat(5, 180px)',
+    gap: '22px'
+  },
+  
+  // Large desktop: 6 columns
+  '@media (min-width: 1200px)': {
+    gridTemplateColumns: 'repeat(6, 180px)',
+    gap: '24px'
+  }
+}));
+
 export default function ProductIndex() {
   const dispatch = useDispatch();
   const { products, categories, subcategories, loading, error } = useSelector(s => s.products);
@@ -109,14 +147,85 @@ export default function ProductIndex() {
   const [showModal, setShowModal] = useState(false);
   const [modalProd, setModalProd] = useState(null);
 
-  // Initialize data fetch for products and related categories
+  // Pagination configuration
+  const PAGE_SIZE = 50;
+
+  // 1) Ensure categories/subcategories/inventories are loaded (small payload)
   useEffect(() => {
     dispatch(fetchProductsAndRelated());
   }, [dispatch]);
 
-  // Trigger filtering logic when category/subcategory/search changes
+  // 2) React Query infinite fetch - FIXED for v5 syntax
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: rqLoading,
+    isError: rqError,
+    error: rqErrorObj
+  } = useInfiniteQuery({
+    queryKey: ['products', PAGE_SIZE],
+    queryFn: async ({ pageParam = 1 }) => {
+      // fetchProductsApi returns { items, hasMore }
+      const res = await fetchProductsApi(pageParam, PAGE_SIZE);
+      return res;
+    },
+    getNextPageParam: (lastPage, pages) => {
+      if (!lastPage) return undefined;
+      return lastPage.hasMore ? pages.length + 1 : undefined;
+    },
+    // keep pages cached for a while
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes (was cacheTime in v4)
+    initialPageParam: 1 // required in v5
+  });
+
+  // Handle successful data fetching
   useEffect(() => {
-    let list = products;
+    if (data) {
+      // flatten and dispatch into redux store (setProducts merges by name)
+      const mergedItems = data.pages.flatMap(p => (p.items || []));
+      if (mergedItems.length) {
+        // dispatch setProducts with entire flattened list so redux normalizes/merges
+        dispatch(setProducts(mergedItems));
+      }
+    }
+  }, [data, dispatch]);
+
+  // Use an intersection observer sentinel to trigger fetchNextPage
+  const sentinelRef = useRef(null);
+  const observerRef = useRef(null);
+
+  const handleObserver = useCallback(
+    entries => {
+      const first = entries[0];
+      if (first.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage]
+  );
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    // disconnect old observer
+    if (observerRef.current) observerRef.current.disconnect();
+    observerRef.current = new IntersectionObserver(handleObserver, { 
+      root: null, 
+      rootMargin: '400px', 
+      threshold: 0.1 
+    });
+    observerRef.current.observe(el);
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [handleObserver]);
+
+  // Filtering logic remains derived from redux products (which is kept current by react-query -> dispatch)
+  useEffect(() => {
+    let list = products || [];
     if (selectedCategory !== 'All') {
       list = list.filter(p => p.category === selectedCategory.id);
     }
@@ -126,9 +235,9 @@ export default function ProductIndex() {
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
       list = list.filter(p => 
-        p.name?.toLowerCase().includes(t) || 
-        p.categoryName?.toLowerCase().includes(t) ||
-        p.subcategoryName?.toLowerCase().includes(t)
+        (p.name || '').toLowerCase().includes(t) || 
+        (p.categoryName || '').toLowerCase().includes(t) ||
+        (p.subcategoryName || '').toLowerCase().includes(t)
       );
     }
     setFiltered(list);
@@ -161,18 +270,23 @@ export default function ProductIndex() {
     console.error(`Image error for ${productName} (${productId})`);
   };
 
-  if (error) {
+  // error handling: prefer react-query error if present
+  const pageError = rqError ? (rqErrorObj?.message || 'Error loading product pages') : error;
+
+  if (pageError) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <NavBar />
         <CenteredContainer>
           <Alert severity="error" sx={{ mt: 2 }}>
-            Error loading products: {error}
+            Error loading products: {pageError}
           </Alert>
         </CenteredContainer>
       </Box>
     );
   }
+
+  const isLoadingOverall = loading || rqLoading;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -258,22 +372,18 @@ export default function ProductIndex() {
           </Paper>
         )}
 
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: 'repeat(2,1fr)',
-              sm: 'repeat(3,1fr)',
-              md: 'repeat(4,1fr)',
-              lg: 'repeat(6,1fr)'
-            },
-            gap: 2,
-            mt: 3
-          }}
-        >
+        <ProductsGrid>
           {filtered.length === 0 ? (
-            <Typography align="center" sx={{ gridColumn: '1/-1', py: 4 }}>
-              {loading ? 'Loading products...' : 'No products found.'}
+            <Typography 
+              align="center" 
+              sx={{ 
+                gridColumn: '1/-1', 
+                py: 4,
+                fontSize: '1.1rem',
+                color: 'text.secondary'
+              }}
+            >
+              {isLoadingOverall ? 'Loading products...' : 'No products found.'}
             </Typography>
           ) : (
             <Suspense fallback={<CircularProgress sx={{ gridColumn: '1/-1', justifySelf: 'center' }} />}>
@@ -285,14 +395,28 @@ export default function ProductIndex() {
                     setModalProd({ ...p, quantity: ic ? ic.quantity : 1 });
                     setShowModal(true);
                   }}
-                  sx={{ cursor: 'pointer' }}
+                  sx={{ 
+                    cursor: 'pointer',
+                    width: '180px',
+                    height: 'auto'
+                  }}
                 >
                   <ProductContainer product={p} />
                 </Box>
               ))}
             </Suspense>
           )}
-        </Box>
+        </ProductsGrid>
+
+        {/* Sentinel for infinite scroll */}
+        <div ref={sentinelRef} style={{ height: 1 }} />
+
+        {/* Minor fetch status indicator */}
+        {isFetchingNextPage && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        )}
       </CenteredContainer>
 
       <Box component="footer" sx={{ mt: 'auto', py: 2, textAlign: 'center', bgcolor: 'background.paper' }}>
@@ -351,7 +475,7 @@ export default function ProductIndex() {
         )}
       </Modal>
 
-      <Backdrop open={loading} sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}>
+      <Backdrop open={isLoadingOverall} sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}>
         <CircularProgress color="inherit" size={50} />
       </Backdrop>
     </Box>

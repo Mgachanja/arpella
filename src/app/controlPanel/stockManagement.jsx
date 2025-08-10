@@ -10,12 +10,12 @@ import {
   Row,
   Col
 } from "react-bootstrap";
+import Pagination from "react-bootstrap/Pagination";
 import { toast } from "react-toastify";
 import axios from "axios";
 import {baseUrl} from "../../constants";
 import { Backdrop, Box, CircularProgress } from "@mui/material";
 import { FaPencilAlt , FaTrash } from "react-icons/fa";
-import { fetchProducts } from "../../redux/slices/productsSlice";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
   const [showStockModal, setShowStockModal] = useState(false);
@@ -31,6 +31,10 @@ const StockManagement = () => {
   const [showTaxModal,setShowTaxModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
+   const [currentPage, setCurrentPage] = useState(1);
+   const [showUploadModal, setShowUploadModal] = useState(false);
+const [uploadProductId, setUploadProductId] = useState(null);
+const [uploadFile, setUploadFile] = useState(null);
   // Toast and loading states
   const [isLoading, setIsLoading] = useState(false);
 
@@ -93,7 +97,6 @@ const updateEntry = (index, field, value) => {
     subCategoryId: null
   });
   const [imageData, setImageData] = useState({
-    productId: "",
     isPrimary: false,
     image: null
   });
@@ -117,6 +120,7 @@ const [invoiceForm, setInvoiceForm] = useState({
   totalAmount: '',
   supplierId: ''
 });
+
 
   // Data arrays
   const [inventories, setInventories] = useState([]);
@@ -147,9 +151,11 @@ const [invoiceForm, setInvoiceForm] = useState({
   const [stockExcelFile, setStockExcelFile] = useState(null);
   const [productsExcelFile, setProductsExcelFile] = useState(null);
 
+  const [hasMore, setHasMore] = useState(true);
   useEffect(() => {
     fetchData();
-    fetchProducts()
+    fetchStocks();
+    fetchProducts();
     setActiveView("stocks");
   }, []);
 
@@ -157,11 +163,6 @@ const [invoiceForm, setInvoiceForm] = useState({
 const fetchData = async () => {
   setIsLoading(true);
   try {
-    const invRes = await axios.get(`${baseUrl}/inventories`, {
-      headers: { "Content-Type": "application/json" }
-    });
-    setInventories(Array.isArray(invRes.data) ? invRes.data : []);
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
     const catRes = await axios.get(`${baseUrl}/categories`, {
       headers: { "Content-Type": "application/json" }
@@ -172,13 +173,6 @@ const fetchData = async () => {
     const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
       headers: { "Content-Type": "application/json" }
     });
-
-    const prodRes = await axios.get(`${baseUrl}/products`, {
-      headers: { "Content-Type": "application/json" }
-    });
-    setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
     setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -188,6 +182,68 @@ const fetchData = async () => {
     setIsLoading(false);
   }
 };
+const pageSize = 25;
+const [currentInventoryPage, setCurrentInventoryPage] = useState(1);
+const fetchStocks = async (page) => {
+  try {
+    setIsLoading(true);
+    const res = await axios.get(`${baseUrl}/paged-inventories?pageNumber=${page}&pageSize=${pageSize}`);
+    const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+    setInventories(data);
+    setHasMore(data.length === pageSize); 
+  } catch (err) {
+    console.error("Error fetching stocks:", err);
+  } finally {
+    setIsLoading(false);
+  }
+}
+
+
+useEffect(() => {
+  fetchStocks(currentInventoryPage);
+}, [currentInventoryPage]);
+
+const handleInventoryPageChange = (page) => {
+    if (page >= 1 && (page < currentInventoryPage || hasMore)) {
+      setCurrentInventoryPage(page);
+    }
+  };
+
+  const categoryMap = React.useMemo(
+  () => Object.fromEntries((categories || []).map(c => [String(c.id), c.categoryName ?? c.name ?? ""])),
+  [categories]
+);
+const subCategoryMap = React.useMemo(
+  () => Object.fromEntries((subCategories || []).map(s => [String(s.id), s.subcategoryName ?? s.name ?? ""])),
+  [subCategories]
+);
+
+const fetchProducts = async (page) => {
+    try {
+      setIsLoading(true);
+      const res = await axios.get(`${baseUrl}/paged-products?pageNumber=${page}&pageSize=${pageSize}`);
+      const data = Array.isArray(res.data) ? res.data : res.data.content || [];
+
+      setProducts(data);
+      console.log(data);
+      setHasMore(data.length === pageSize); 
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts(currentPage);
+  }, [currentPage]);
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && (page < currentPage || hasMore)) {
+      setCurrentPage(page);
+    }
+  };
+
 
 const fetchSubCategories = async () => {
   setIsLoading(true);
@@ -196,6 +252,7 @@ const fetchSubCategories = async () => {
       headers: { "Content-Type": "application/json" }
     });
     setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
+    console.log(subCategories);
   } catch (error) {
     showToastMessage("Failed to fetch subcategories: " + (error.message || "Unknown error"), "danger");
   } finally {
@@ -484,47 +541,55 @@ const fetchSubCategories = async () => {
   };
 
   // Handle image selection
+
+
+  // Handle image upload
+  const openUploadModal = (productId) => {
+  setUploadProductId(productId);
+  setUploadFile(null);          // reset previous file selection
+  setShowImageUploadModal(true);
+};
+
+const closeUploadModal = () => {
+  setShowUploadModal(false);
+  setUploadProductId(null);
+  setUploadFile(null);
+};
+const handleChooseFile = () => {
+    console.log('Choose file clicked');
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+   const handleUploadImage = () => {
+    if (!imageData.image) {
+      alert('Please select an image first');
+      return;
+    }
+    
+    setIsLoading(true);
+    // Simulate upload
+    setTimeout(() => {
+      console.log('Uploading:', imageData);
+      setIsLoading(false);
+      setShowImageUploadModal(false);
+      // Reset form
+      setImageData({ image: null, isPrimary: false });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }, 2000);
+  };
+
   const handleImageChange = (e) => {
+    console.log('File selected');
     const file = e.target.files[0];
     if (file) {
-      const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
-      if (!validTypes.includes(file.type)) {
-        showToastMessage("Please select a valid image file (JPEG, PNG, WebP)", "danger");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        showToastMessage("Image size should be less than 5MB", "danger");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
       setImageData({ ...imageData, image: file });
     }
   };
 
-  // Handle image upload
-  const handleUploadImage = async () => {
-    console.log(imageData)
-    try {
-      setIsLoading(true);
-      if (!imageData.productId || !imageData.image) {
-        throw new Error("Please select a product and an image");
-      }
-      await axios.post(`${baseUrl}/product-image-details`, {
-        productId: imageData.productId,
-        isPrimary: imageData.isPrimary,
-        image_url: imageData.image
-      }, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-      showToastMessage("Image uploaded successfully" , "success");
-      setShowImageUploadModal(false);
-    } catch (error) {
-      showToastMessage("Failed to upload image: " + (error.response?.data?.message || error.message), "danger");
-    } finally {
-      setIsLoading(false);
-    }
-  };
   // Handle Stock Excel upload
   const handleUploadStockExcel = async () => {
   // Guard clause: nothing to do if no file selected
@@ -642,8 +707,6 @@ const addRestockEntry = () => {
   ]);
 };
 
-
-
  const handleAddRestock = async () => {
   if (!restockMeta.invoiceNumber || !restockMeta.supplierId) {
     toast.error("Supplier and invoice are required.");
@@ -679,7 +742,6 @@ const addRestockEntry = () => {
     setIsLoading(false);
   }
 };
-
 
   const handleEditSupplier = (id) => {
   const supplier = supplierData.find(s => s.id === id);
@@ -717,9 +779,7 @@ const addRestockEntry = () => {
     }finally{
       setShowEditSupplierModal(false);
       setIsLoading(false);
-
     }
-
   };
 
   return (
@@ -824,6 +884,17 @@ const addRestockEntry = () => {
               )}
             </tbody>
           </Table>
+          <Pagination className="mt-3 justify-content-center">
+            <Pagination.Prev
+                onClick={() => handleInventoryPageChange(currentInventoryPage - 1)}
+                disabled={currentPage === 1}
+              />
+              <Pagination.Item active>  page  {currentInventoryPage}</Pagination.Item>
+              <Pagination.Next
+                onClick={() => handleInventoryPageChange(currentInventoryPage + 1)}
+                disabled={!hasMore}
+              />
+          </Pagination>
         </Container>
       )}
       {activeView === "products" && (
@@ -837,13 +908,12 @@ const addRestockEntry = () => {
           <Table striped bordered hover className="mt-4">
             <thead>
               <tr>
-                <th>Product ID</th>
                 <th>Name</th>
                 <th>Price</th>
                 <th>Category</th>
                 <th>Subcategory</th>
-                <th>Created At</th>
                 <th>Updated At</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -858,18 +928,33 @@ const addRestockEntry = () => {
               ) : (
                 products.map((prod, index) => (
                   <tr key={index}>
-                    <td>{prod.id}</td>
                     <td>{prod.name}</td>
                     <td>{prod.price}</td>
-                    <td>{prod.category}</td>
-                    <td>{prod.subcategory}</td>
-                    <td>{new Date(prod.createdAt).toLocaleString()}</td>
+                    <td>{categoryMap[String(prod.category)] || prod.category}</td>
+                    <td>{subCategoryMap[String(prod.subcategory)] || prod.subcategory}</td>
                     <td>{new Date(prod.updatedAt).toLocaleString()}</td>
+                    <td>
+                      <Button variant="outline-primary" size="sm" onClick={() => openUploadModal(prod.id)}>
+                        upload image
+                      </Button>
+                    </td>
+
                   </tr>
                 ))
               )}
             </tbody>
           </Table>
+           <Pagination className="mt-3 justify-content-center">
+              <Pagination.Prev
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              />
+              <Pagination.Item active>  page {currentPage}</Pagination.Item>
+              <Pagination.Next
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={!hasMore}
+              />
+            </Pagination>
         </Container>
       )}
       {activeView === "suppliers" && (
@@ -1446,7 +1531,6 @@ const addRestockEntry = () => {
         </Modal.Footer>
       </Modal>
 
-
       {/* Add Supplier Modal (wide offset) */}
       <Modal show={showSupplierModal} onHide={() => !isLoading && setShowSupplierModal(false)} dialogClassName="custom-modal modal-dialog-centered">
         <Modal.Header closeButton>
@@ -1766,7 +1850,6 @@ const addRestockEntry = () => {
         </Form>
       </Modal>
 
-
       {/* Add Category Modal (wide offset) – now launched from within Add Product */}
       <Modal show={showCategoryModal} onHide={() => !isLoading && setShowCategoryModal(false)} dialogClassName="custom-modal modal-dialog-centered">
         <Modal.Header closeButton>
@@ -1842,37 +1925,47 @@ const addRestockEntry = () => {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Select Product</Form.Label>
-              <Form.Select
-                value={imageData.productId}
-                onChange={e => setImageData({ ...imageData, productId: e.target.value })}
-                required
-              >
-                <option value="">Select a product</option>
-                {products.map(product => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </Form.Select>
-              {products.length === 0 && (
-                <div className="text-danger mt-2">No products available. Please add products first.</div>
-              )}
-            </Form.Group>
-            <Form.Group className="mb-3">
               <Form.Label>Upload Image</Form.Label>
+              
+              {/* Hidden file input */}
               <Form.Control
-                formEncType="multipart/form-data"
                 type="file"
                 ref={fileInputRef}
                 onChange={handleImageChange}
                 accept="image/jpeg,image/png,image/jpg,image/webp"
-                required
+                style={{ display: 'none' }}
               />
+              
+              {/* Custom upload area */}
+              <div 
+                className="border border-2 border-dashed rounded p-3 text-center"
+                style={{ 
+                  borderColor: '#0d6efd',
+                  backgroundColor: '#f8f9ff',
+                  cursor: 'pointer'
+                }}
+                onClick={handleChooseFile}
+              >
+                {imageData.image ? (
+                  <div>
+                    <strong>{imageData.image.name}</strong>
+                    <div className="text-muted small">
+                      Size: {(imageData.image.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div><strong>Click to select an image</strong></div>
+                    <div className="text-muted small">Choose from your computer</div>
+                  </div>
+                )}
+              </div>
+              
               <Form.Text className="text-muted">
                 Supported formats: JPEG, PNG, WebP. Maximum size: 5MB
               </Form.Text>
             </Form.Group>
+            
             <Form.Group className="mb-3">
               <Form.Check
                 type="checkbox"
@@ -1891,7 +1984,7 @@ const addRestockEntry = () => {
           <Button variant="secondary" onClick={() => !isLoading && setShowImageUploadModal(false)}>
             Close
           </Button>
-          <Button variant="primary" onClick={handleUploadImage} disabled={isLoading || !imageData.productId || !imageData.image}>
+          <Button variant="primary" onClick={handleUploadImage} disabled={isLoading || !imageData.image}>
             {isLoading ? "Uploading..." : "Upload Image"}
           </Button>
         </Modal.Footer>
