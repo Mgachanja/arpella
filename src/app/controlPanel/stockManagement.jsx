@@ -35,6 +35,9 @@ const StockManagement = () => {
    const [showUploadModal, setShowUploadModal] = useState(false);
 const [uploadProductId, setUploadProductId] = useState(null);
 const [uploadFile, setUploadFile] = useState(null);
+const [showEditModal, setShowEditModal] = useState(false);
+const [editProductData, setEditProductData] = useState({});
+const [editForm, setEditForm] = useState({});
   // Toast and loading states
   const [isLoading, setIsLoading] = useState(false);
 
@@ -154,8 +157,6 @@ const [invoiceForm, setInvoiceForm] = useState({
   const [hasMore, setHasMore] = useState(true);
   useEffect(() => {
     fetchData();
-    fetchStocks();
-    fetchProducts();
     setActiveView("stocks");
   }, []);
 
@@ -245,20 +246,23 @@ const fetchProducts = async (page) => {
   };
 
 
-const fetchSubCategories = async () => {
-  setIsLoading(true);
-  try {
-    const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
-      headers: { "Content-Type": "application/json" }
-    });
-    setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
-    console.log(subCategories);
-  } catch (error) {
-    showToastMessage("Failed to fetch subcategories: " + (error.message || "Unknown error"), "danger");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  const fetchSubCategories = async () => {
+    setIsLoading(true);
+    try {
+      const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
+        headers: { "Content-Type": "application/json" }
+      });
+      setSubCategories(Array.isArray(subCatRes.data) ? subCatRes.data : []);
+      console.log("Fetched subcategories:", subCategories);
+    } catch (error) {
+      showToastMessage("Failed to fetch subcategories: " + (error.message || "Unknown error"), "danger");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  useEffect(() => {
+    fetchSubCategories();
+  }, []);
 
   // Fetch suppliers
   const fetchSuppliers = async () => {
@@ -540,6 +544,76 @@ const fetchSubCategories = async () => {
     }
   };
 
+const handleEditShow = (product) => {
+  setEditProductData({
+    Id: product.id,
+    inventoryId: product.inventoryId,
+    name: product.name,
+    price: product.price,
+    priceAfterDiscount: product.priceAfterDiscount,
+    categoryId: product.category, 
+    subCategoryId: product.subcategory,
+    purchaseCap: product.purchaseCap,
+    discountQuantity: product.discountQuantity,
+    barcodes: product.barcodes
+  });
+  setShowEditModal(true);
+};
+
+const handleEditClose = () => {
+  if (!isLoading) setShowEditModal(false);
+};
+
+const handleEditProduct = async () => {
+  try {
+    setIsLoading(true);
+    if (
+      !editProductData.name ||
+      !editProductData.price ||
+      !editProductData.inventoryId ||
+      editProductData.categoryId === null ||
+      editProductData.subCategoryId === null
+    ) {
+      throw new Error("All required product fields must be filled");
+    }
+
+    const payload = {
+      inventoryId: editProductData.inventoryId,
+      purchaseCap: editProductData.purchaseCap,
+      category: editProductData.categoryId,
+      subcategory: editProductData.subCategoryId,
+      name: editProductData.name,
+      price: editProductData.price,
+      barcodes: editProductData.barcodes,
+      discountQuantity: editProductData.discountQuantity,
+      priceAfterDiscount: editProductData.priceAfterDiscount
+    };
+
+    await axios.put(`${baseUrl}/product/${editProductData.Id}`, payload, {
+      headers: { "Content-Type": "application/json" }
+    });
+
+    showToastMessage("Product updated successfully");
+    setShowEditModal(false);
+
+    // Refresh products
+    const prodRes = await axios.get(`${baseUrl}/products`, {
+      headers: { "Content-Type": "application/json" }
+    });
+    setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+
+  } catch (error) {
+    console.error(error);
+    showToastMessage(
+      "Failed to update product: " +
+        (error.response?.data?.message || error.response),
+      "danger"
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   // Handle image selection
 
 
@@ -569,17 +643,26 @@ const handleChooseFile = () => {
     }
     
     setIsLoading(true);
-    // Simulate upload
-    setTimeout(() => {
-      console.log('Uploading:', imageData);
-      setIsLoading(false);
-      setShowImageUploadModal(false);
-      // Reset form
-      setImageData({ image: null, isPrimary: false });
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+
+    const formData = new FormData();
+    formData.append('image', imageData.image);
+    formData.append('productId', uploadProductId);
+    formData.append('isPrimary', imageData.isPrimary ? 'true' : 'false');
+
+    axios.post(`${baseUrl}/product-image-details`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
       }
-    }, 2000);
+    })
+      .then(response => {
+        console.log('Image uploaded successfully:', response.data);
+        setShowImageUploadModal(false);
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error('Error uploading image:', error);
+        setIsLoading(false);
+      });
   };
 
   const handleImageChange = (e) => {
@@ -936,6 +1019,9 @@ const addRestockEntry = () => {
                     <td>
                       <Button variant="outline-primary" size="sm" onClick={() => openUploadModal(prod.id)}>
                         upload image
+                      </Button>
+                      <Button variant="outline-primary" size="sm" onClick={() =>handleEditShow(prod)}>
+                        Edit
                       </Button>
                     </td>
 
@@ -1565,6 +1651,229 @@ const addRestockEntry = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* edit products modal */}
+     <Modal
+        show={showEditModal}
+        onHide={() => !isLoading && handleEditClose()}
+        size="lg"
+        dialogClassName="small-offset-modal modal-dialog-centered"
+      >
+        <Form
+          onSubmit={e => {
+            e.preventDefault();
+            handleEditProduct();
+          }}
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>Edit Product</Modal.Title>
+          </Modal.Header>
+
+          <Modal.Body>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Inventory Product</Form.Label>
+                  <Form.Select
+                    value={editProductData.inventoryId}
+                    onChange={e =>
+                      setEditProductData({ ...editProductData, inventoryId: e.target.value })
+                    }
+                    required
+                  >
+                    <option value="">Select a product</option>
+                    {inventories.map(inv => (
+                      <option key={inv.productId} value={inv.productId}>
+                        {inv.productId}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Product Name</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={editProductData.name}
+                    onChange={e =>
+                      setEditProductData({ ...editProductData, name: e.target.value })
+                    }
+                    required
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Price</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={editProductData.price}
+                    onChange={e =>
+                      setEditProductData({ ...editProductData, price: e.target.value })
+                    }
+                    required
+                    min="0"
+                    step="1"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Price After Discount</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={editProductData.priceAfterDiscount}
+                    onChange={e =>
+                      setEditProductData({
+                        ...editProductData,
+                        priceAfterDiscount: e.target.value,
+                      })
+                    }
+                    min="0"
+                    step="0.001"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Barcode</Form.Label>
+              <Form.Control
+                type="text"
+                value={editProductData.barcodes}
+                onChange={e =>
+                  setEditProductData({ ...editProductData, barcodes: e.target.value })
+                }
+                placeholder="Enter product barcode"
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Discount Quantity</Form.Label>
+              <Form.Control
+                type="text"
+                value={editProductData.discountQuantity}
+                onChange={e =>
+                  setEditProductData({ ...editProductData, discountQuantity: e.target.value })
+                }
+                placeholder="Enter product discount quantity"
+              />
+            </Form.Group>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Category</Form.Label>
+                  <div className="d-flex">
+                    <Form.Select
+                      value={editProductData.categoryId ?? ""}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setEditProductData({
+                          ...editProductData,
+                          categoryId: val === "" ? null : Number(val),
+                          subCategoryId: null,
+                        });
+                      }}
+                      required
+                    >
+                      <option value="">Select a category</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.id + " - " + cat.categoryName}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <Button
+                      type="button"
+                      variant="outline-secondary"
+                      className="ms-2"
+                      onClick={() => setShowCategoryModal(true)}
+                      disabled={isLoading}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Subcategory</Form.Label>
+                  <div className="d-flex">
+                   <Form.Select
+                      name="subCategoryId"
+                      value={editProductData.subCategoryId ?? ""}
+                      onChange={e =>
+                        setEditProductData({
+                          ...editProductData,
+                          subCategoryId: e.target.value === "" ? null : Number(e.target.value),
+                        })
+                      }
+                      required
+                      disabled={editProductData.categoryId === null}
+                      className="me-2"
+                    >
+                      <option value="">Select a subcategory</option>
+
+                      {Array.isArray(subCategories)
+                        ? subCategories
+                            .filter(sc => Number(sc.categoryId) === Number(editProductData.categoryId))
+                            .map(sc => (
+                              <option key={sc.id} value={sc.id}>
+                                {sc.subcategoryName}
+                              </option>
+                            ))
+                        : null}
+                    </Form.Select>
+
+                    <Button
+                      type="button"
+                      variant="outline-secondary"
+                      onClick={() => setShowSubCategoryModal(true)}
+                      disabled={isLoading || editProductData.categoryId === null}
+                    >
+                      +
+                    </Button>
+                  </div>
+                  {editProductData.categoryId === null && (
+                    <Form.Text className="text-muted">Please select a category first</Form.Text>
+                  )}
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Purchase Cap</Form.Label>
+              <Form.Control
+                type="number"
+                value={editProductData.purchaseCap}
+                onChange={e =>
+                  setEditProductData({ ...editProductData, purchaseCap: e.target.value })
+                }
+                min="1"
+              />
+            </Form.Group>
+          </Modal.Body>
+
+          <Modal.Footer>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => !isLoading && handleEditClose()}
+            >
+              Close
+            </Button>
+            <Button type="submit" variant="primary" disabled={isLoading}>
+              {isLoading ? "Saving..." : "Save Changes"}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
+
 
       {/*add tax data modal for kra purposes */}
       <Modal show={showTaxModal} onHide={() => !isLoading && setShowTaxModal(false)}>
