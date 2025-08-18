@@ -16,12 +16,14 @@ import {
   TextField,
   Container as MuiContainer,
   Button as MuiButton,
-  Alert
+  Alert,
+  IconButton
 } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 import { styled } from '@mui/system';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
-import { Row, Col } from 'react-bootstrap';
+import { Row, Col, Offcanvas, Accordion, ListGroup } from 'react-bootstrap';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 // Styled container for consistent layout width
@@ -137,7 +139,7 @@ const ProductsGrid = styled(Box)(({ theme }) => ({
 
 export default function ProductIndex() {
   const dispatch = useDispatch();
-  const { products, categories, subcategories, loading, error } = useSelector(s => s.products);
+  const { products = [], categories = [], subcategories = [], loading, error } = useSelector(s => s.products || {});
   const cart = useSelector(s => s.cart.items);
 
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -146,6 +148,9 @@ export default function ProductIndex() {
   const [filtered, setFiltered] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalProd, setModalProd] = useState(null);
+
+  // NEW: Offcanvas menu state for small screens only
+  const [showMenuOff, setShowMenuOff] = useState(false);
 
   // Pagination configuration
   const PAGE_SIZE = 50;
@@ -227,10 +232,10 @@ export default function ProductIndex() {
   useEffect(() => {
     let list = products || [];
     if (selectedCategory !== 'All') {
-      list = list.filter(p => p.category === selectedCategory.id);
+      list = list.filter(p => String(p.category) === String(selectedCategory.id ?? selectedCategory));
     }
     if (selectedSub) {
-      list = list.filter(p => p.subcategory === selectedSub.id);
+      list = list.filter(p => String(p.subcategory) === String(selectedSub.id));
     }
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
@@ -244,7 +249,7 @@ export default function ProductIndex() {
   }, [products, selectedCategory, selectedSub, searchTerm]);
 
   const subsOf = cat =>
-    subcategories.filter(sc => sc.categoryId === cat.id);
+    (subcategories || []).filter(sc => String(sc.categoryId) === String(cat.id));
 
   // Add product to cart from modal
   const onAdd = () => {
@@ -293,22 +298,32 @@ export default function ProductIndex() {
       <NavBar />
 
       <CenteredContainer>
-        <TextField
-          fullWidth
-          placeholder="Search products, categories..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          variant="outlined"
-          sx={{ mb: 2 }}
-          InputProps={{
-            sx: {
-              fontSize: '1rem',
-              padding: '8px',
-              height: '3rem'
-            }
-          }}
-        />
+        {/* Hamburger for small screens only - DOES NOT affect large screen layout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div className="d-lg-none">
+            <IconButton aria-label="menu" onClick={() => setShowMenuOff(true)} size="small">
+              <MenuIcon />
+            </IconButton>
+          </div>
 
+          <TextField
+            fullWidth
+            placeholder="Search products, categories..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            variant="outlined"
+            sx={{ mb: 0 }}
+            InputProps={{
+              sx: {
+                fontSize: '1rem',
+                padding: '8px',
+                height: '3rem'
+              }
+            }}
+          />
+        </div>
+
+        {/* CATEGORY STRIP: VISIBLE ONLY ON LARGE SCREENS (hidden on mobile) */}
         <Paper
           elevation={4}
           sx={{
@@ -316,7 +331,8 @@ export default function ProductIndex() {
             border: '1px solid rgba(0,0,0,0.08)',
             borderRadius: '6px',
             p: 1.5,
-            mb: 2
+            mb: 2,
+            display: { xs: 'none', lg: 'block' } // <--- hidden on mobile/small screens
           }}
         >
           <Typography
@@ -335,7 +351,7 @@ export default function ProductIndex() {
             {categories.map(cat => (
               <CategoryButton
                 key={cat.id}
-                isSelected={selectedCategory.id === cat.id}
+                isSelected={String(selectedCategory?.id ?? selectedCategory) === String(cat.id)}
                 onClick={() => { setSelectedCategory(cat); setSelectedSub(null); }}
               >
                 {cat.categoryName}
@@ -344,6 +360,7 @@ export default function ProductIndex() {
           </Box>
         </Paper>
 
+        {/* SUBCATEGORIES: VISIBLE ONLY ON LARGE SCREENS (hidden on mobile) */}
         {selectedCategory !== 'All' && subsOf(selectedCategory).length > 0 && (
           <Paper
             elevation={2}
@@ -352,7 +369,8 @@ export default function ProductIndex() {
               border: '1px solid rgba(0,0,0,0.06)',
               borderRadius: '6px',
               p: 1.5,
-              mb: 2
+              mb: 2,
+              display: { xs: 'none', lg: 'block' } // <--- hidden on mobile/small screens
             }}
           >
             <SubcategoryTitle>
@@ -474,6 +492,48 @@ export default function ProductIndex() {
           </>
         )}
       </Modal>
+
+      {/* Offcanvas for hamburger menu (small screens only) */}
+      <Offcanvas show={showMenuOff} onHide={() => setShowMenuOff(false)} placement="start">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Categories</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          {(categories || []).length === 0 ? (
+            <div className="text-center text-muted">No categories available</div>
+          ) : (
+            <Accordion defaultActiveKey={null}>
+              {categories.map(cat => (
+                <Accordion.Item eventKey={String(cat.id)} key={cat.id}>
+                  <Accordion.Header>{cat.categoryName || 'Unnamed Category'}</Accordion.Header>
+                  <Accordion.Body>
+                    {subsOf(cat).length === 0 ? (
+                      <div className="ms-2 text-muted">No subcategories</div>
+                    ) : (
+                      <ListGroup variant="flush">
+                        {subsOf(cat).map(sub => (
+                          <ListGroup.Item
+                            key={sub.id}
+                            action
+                            onClick={() => {
+                              setSelectedCategory(cat);
+                              setSelectedSub(sub);
+                              setShowMenuOff(false);
+                              window.scrollTo({ top: 200, behavior: 'smooth' });
+                            }}
+                          >
+                            {sub.subcategoryName || sub.name || 'Unnamed Subcategory'}
+                          </ListGroup.Item>
+                        ))}
+                      </ListGroup>
+                    )}
+                  </Accordion.Body>
+                </Accordion.Item>
+              ))}
+            </Accordion>
+          )}
+        </Offcanvas.Body>
+      </Offcanvas>
 
       <Backdrop open={isLoadingOverall} sx={{ color: '#fff', zIndex: theme => theme.zIndex.drawer + 1 }}>
         <CircularProgress color="inherit" size={50} />
