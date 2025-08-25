@@ -16,6 +16,7 @@ import axios from "axios";
 import {baseUrl} from "../../constants";
 import { Backdrop, Box, CircularProgress } from "@mui/material";
 import { FaPencilAlt , FaTrash } from "react-icons/fa";
+import { set } from "react-hook-form";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
   const [showStockModal, setShowStockModal] = useState(false);
@@ -36,7 +37,7 @@ const StockManagement = () => {
 const [uploadProductId, setUploadProductId] = useState(null);
 const [uploadFile, setUploadFile] = useState(null);
 const [showEditModal, setShowEditModal] = useState(false);
-const [editProductData, setEditProductData] = useState({});
+const [editProductData, setEditProductData] = useState([]);
 const [editForm, setEditForm] = useState({});
   // Toast and loading states
   const [isLoading, setIsLoading] = useState(false);
@@ -545,6 +546,10 @@ const fetchProducts = async (page) => {
   };
 
 const handleEditShow = (product) => {
+  setIsLoading(true);
+  axios.get(`${baseUrl}/product/${product.id}`)
+  .catch(() => ({ data: [] }));
+  setIsLoading(false);
   setEditProductData({
     Id: product.id,
     inventoryId: product.inventoryId,
