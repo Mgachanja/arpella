@@ -547,8 +547,9 @@ const fetchProducts = async (page) => {
 
 const handleEditShow = (product) => {
   setIsLoading(true);
-  axios.get(`${baseUrl}/product/${product.id}`)
+   const response = axios.get(`${baseUrl}/product/${product.id}`)
   .catch(() => ({ data: [] }));
+  console.log(response)
   setIsLoading(false);
   setEditProductData({
     Id: product.id,
@@ -1679,20 +1680,11 @@ const addRestockEntry = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Inventory Product</Form.Label>
-                  <Form.Select
+                  <Form.Control
+                    type="text"
                     value={editProductData.inventoryId}
-                    onChange={e =>
-                      setEditProductData({ ...editProductData, inventoryId: e.target.value })
-                    }
                     required
-                  >
-                    <option value="">Select a product</option>
-                    {inventories.map(inv => (
-                      <option key={inv.productId} value={inv.productId}>
-                        {inv.productId}
-                      </option>
-                    ))}
-                  </Form.Select>
+                  />
                 </Form.Group>
               </Col>
               <Col md={6}>
