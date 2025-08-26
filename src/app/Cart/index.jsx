@@ -173,6 +173,7 @@ export default function Cart() {
 
       const payload = {
         userId: user.phone,
+        orderPaymentType: 'Mpesa',
         phoneNumber: phoneInput.trim(),
         buyerPin: kraPinInput.trim() || 'N/A',
         latitude: coords.lat,
