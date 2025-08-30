@@ -19,6 +19,7 @@ import { FaPencilAlt , FaTrash } from "react-icons/fa";
 import { set } from "react-hook-form";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
+  const [isOpen, setIsOpen] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -1962,23 +1963,44 @@ const addRestockEntry = () => {
           <Modal.Body>
             <Row>
               <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Inventory Product</Form.Label>
-                  <Form.Select
-                    value={productData.inventoryId}
-                    onChange={e =>
-                      setProductData({ ...productData, inventoryId: e.target.value })
-                    }
-                    required
-                  >
-                    <option value="">Select a product</option>
-                    {inventories.map(inv => (
-                      <option key={inv.productId} value={inv.productId}>
-                        {inv.productId}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
+             <Form.Group className="mb-3">
+  <Form.Label>Inventory Product</Form.Label>
+  <Form.Select
+    value={productData.inventoryId}
+    onChange={e => {
+      const value = e.target.value;
+      if (value === '__prev__') {
+        const newPage = currentPage - 1;
+        setCurrentPage(newPage);
+        fetchStocks(newPage);
+        return;
+      }
+      if (value === '__next__') {
+        const newPage = currentPage + 1;
+        setCurrentPage(newPage);
+        fetchStocks(newPage);
+        return;
+      }
+      setProductData({ ...productData, inventoryId: value });
+    }}
+    required
+  >
+    <option value="">Select a product</option>
+    <option disabled>──── Page {currentPage} Navigation ────</option>
+    
+    {currentPage > 1 && (
+      <option value="__prev__">← Previous Page</option>
+    )}
+    <option value="__next__">→ Next Page</option>
+    
+    <option disabled>──── Products ────</option>
+    {inventories.map(inv => (
+      <option key={inv.productId} value={inv.productId}>
+        {inv.productId}
+      </option>
+    ))}
+  </Form.Select>
+</Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
