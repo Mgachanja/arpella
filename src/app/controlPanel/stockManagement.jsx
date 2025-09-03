@@ -172,6 +172,19 @@ const fetchData = async () => {
     });
     setCategories(Array.isArray(catRes.data) ? catRes.data : []);
     await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const sup = await axios.get(`${baseUrl}/suppliers`, {
+      headers: { "Content-Type": "application/json" }
+    })
+    setSuppliers(Array.isArray(sup.data) ? sup.data : []);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const inv = await axios.get(`${baseUrl}/invoices`, {
+      headers: { "Content-Type": "application/json" }
+    })
+    setInvoices(Array.isArray(inv.data) ? inv.data : []);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
 
     const subCatRes = await axios.get(`${baseUrl}/subcategories`, {
       headers: { "Content-Type": "application/json" }
@@ -380,6 +393,7 @@ const fetchProducts = async (page) => {
     try {
       setIsLoading(true);
       const { productId, stockQuantity, stockThreshold, stockPrice, supplierId } = editStockData;
+      console.log(editStockData);
       if (!productId || !stockQuantity || !stockThreshold || !stockPrice || !supplierId) {
         throw new Error("All fields are required");
       }
@@ -932,7 +946,17 @@ const addRestockEntry = () => {
               <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowInvoiceModal(true)}>Add Invoice</Button>
               <Button  sx={{ mr:1, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowStockExcelModal(true)}>upload stock excel sheet</Button>
             </Box>
-          
+            <Pagination className="mt-3 justify-content-center">
+            <Pagination.Prev
+                onClick={() => handleInventoryPageChange(currentInventoryPage - 1)}
+                disabled={currentPage === 1}
+              />
+              <Pagination.Item active>  page  {currentInventoryPage}</Pagination.Item>
+              <Pagination.Next
+                onClick={() => handleInventoryPageChange(currentInventoryPage + 1)}
+                disabled={!hasMore}
+              />
+          </Pagination>
 
           <Table striped bordered hover className="mt-4">
             <thead>
@@ -974,17 +998,7 @@ const addRestockEntry = () => {
               )}
             </tbody>
           </Table>
-          <Pagination className="mt-3 justify-content-center">
-            <Pagination.Prev
-                onClick={() => handleInventoryPageChange(currentInventoryPage - 1)}
-                disabled={currentPage === 1}
-              />
-              <Pagination.Item active>  page  {currentInventoryPage}</Pagination.Item>
-              <Pagination.Next
-                onClick={() => handleInventoryPageChange(currentInventoryPage + 1)}
-                disabled={!hasMore}
-              />
-          </Pagination>
+          
         </Container>
       )}
       {activeView === "products" && (
@@ -995,6 +1009,17 @@ const addRestockEntry = () => {
             <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowProductsExcelModal(true)}>Upload Products Excel</Button>
             <Button sx={{ mr:10, mb:2  ,backgroundColor: 'orange !important',borderRadius: '50px', color: 'white !important', textTransform: 'none', px: 3, py: 1, '&:hover': {backgroundColor: '#e69500' } }} onClick={()=>setShowTaxModal(true)}>Add Product Tax Data</Button>
           </Box>
+          <Pagination className="mt-3 justify-content-center">
+              <Pagination.Prev
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              />
+              <Pagination.Item active>  page {currentPage}</Pagination.Item>
+              <Pagination.Next
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={!hasMore}
+              />
+            </Pagination>
           <Table striped bordered hover className="mt-4">
             <thead>
               <tr>
@@ -1037,17 +1062,7 @@ const addRestockEntry = () => {
               )}
             </tbody>
           </Table>
-           <Pagination className="mt-3 justify-content-center">
-              <Pagination.Prev
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-              />
-              <Pagination.Item active>  page {currentPage}</Pagination.Item>
-              <Pagination.Next
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={!hasMore}
-              />
-            </Pagination>
+           
         </Container>
       )}
       {activeView === "suppliers" && (
@@ -1079,7 +1094,7 @@ const addRestockEntry = () => {
                   <td colSpan="4" className="text-center">No suppliers found</td>
                 </tr>
               ) : (
-                supplierData.map((supplier) => (
+                suppliers.map((supplier) => (
                   <tr key={supplier.id}>
                     <td>{supplier.id}</td>
                     <td>{supplier.supplierName}</td>
@@ -1233,7 +1248,7 @@ const addRestockEntry = () => {
                 }
               >
                 <option value="">Select supplier</option>
-                {supplierData.map((supplier) => (
+                {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.supplierName}
                     </option>
@@ -1277,19 +1292,41 @@ const addRestockEntry = () => {
               <Row className="mb-3">
                 <Col>
                   <Form.Label>Product</Form.Label>
-                  <Form.Select
-                    value={entry.productId}
-                    onChange={(e) =>
-                      updateRestockEntry(index, "productId", e.target.value)
-                    }
-                  >
-                    <option value="">Select product</option>
-                    {inventories.map((i) => (
-                      <option key={i.productId} value={i.productId}>
-                        {i.productId}
-                      </option>
-                    ))}
-                  </Form.Select>
+                 <Form.Select
+                value={productData.inventoryId}
+                onChange={e => {
+                  const value = e.target.value;
+                  if (value === '__prev__') {
+                    const newPage = currentPage - 1;
+                    setCurrentPage(newPage);
+                    fetchStocks(newPage);
+                    return;
+                  }
+                  if (value === '__next__') {
+                    const newPage = currentPage + 1;
+                    setCurrentPage(newPage);
+                    fetchStocks(newPage);
+                    return;
+                  }
+                  setProductData({ ...productData, inventoryId: value });
+                }}
+                required
+              >
+                <option value="">Select a product</option>
+                <option disabled>──── Page {currentPage} Navigation ────</option>
+                
+                {currentPage > 1 && (
+                  <option value="__prev__">← Previous Page</option>
+                )}
+                <option value="__next__">→ Next Page</option>
+                
+                <option disabled>──── Products ────</option>
+                {inventories.map(inv => (
+                  <option key={inv.productId} value={inv.productId}>
+                    {inv.productId}
+                  </option>
+                ))}
+              </Form.Select>
                 </Col>
 
                 <Col>
@@ -1421,7 +1458,7 @@ const addRestockEntry = () => {
                   }
                 >
                   <option value="">Select a supplier</option>
-                  {supplierData.map((supplier) => (
+                  {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.supplierName}
                     </option>
@@ -1555,7 +1592,7 @@ const addRestockEntry = () => {
               <div className="d-flex align-items-center">
                 <Form.Select value={invoiceForm.supplierId} onChange={(e) => setInvoiceForm({ ...invoiceForm, supplierId: e.target.value })}>
                   <option value="">Select a supplier</option>
-                  {supplierData.map(supplier => (
+                  {suppliers.map(supplier => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.supplierName}
                     </option>
@@ -1964,43 +2001,43 @@ const addRestockEntry = () => {
             <Row>
               <Col md={6}>
              <Form.Group className="mb-3">
-  <Form.Label>Inventory Product</Form.Label>
-  <Form.Select
-    value={productData.inventoryId}
-    onChange={e => {
-      const value = e.target.value;
-      if (value === '__prev__') {
-        const newPage = currentPage - 1;
-        setCurrentPage(newPage);
-        fetchStocks(newPage);
-        return;
-      }
-      if (value === '__next__') {
-        const newPage = currentPage + 1;
-        setCurrentPage(newPage);
-        fetchStocks(newPage);
-        return;
-      }
-      setProductData({ ...productData, inventoryId: value });
-    }}
-    required
-  >
-    <option value="">Select a product</option>
-    <option disabled>──── Page {currentPage} Navigation ────</option>
-    
-    {currentPage > 1 && (
-      <option value="__prev__">← Previous Page</option>
-    )}
-    <option value="__next__">→ Next Page</option>
-    
-    <option disabled>──── Products ────</option>
-    {inventories.map(inv => (
-      <option key={inv.productId} value={inv.productId}>
-        {inv.productId}
-      </option>
-    ))}
-  </Form.Select>
-</Form.Group>
+              <Form.Label>Inventory Product</Form.Label>
+              <Form.Select
+                value={productData.inventoryId}
+                onChange={e => {
+                  const value = e.target.value;
+                  if (value === '__prev__') {
+                    const newPage = currentPage - 1;
+                    setCurrentPage(newPage);
+                    fetchStocks(newPage);
+                    return;
+                  }
+                  if (value === '__next__') {
+                    const newPage = currentPage + 1;
+                    setCurrentPage(newPage);
+                    fetchStocks(newPage);
+                    return;
+                  }
+                  setProductData({ ...productData, inventoryId: value });
+                }}
+                required
+              >
+                <option value="">Select a product</option>
+                <option disabled>──── Page {currentPage} Navigation ────</option>
+                
+                {currentPage > 1 && (
+                  <option value="__prev__">← Previous Page</option>
+                )}
+                <option value="__next__">→ Next Page</option>
+                
+                <option disabled>──── Products ────</option>
+                {inventories.map(inv => (
+                  <option key={inv.productId} value={inv.productId}>
+                    {inv.productId}
+                  </option>
+                ))}
+              </Form.Select>
+            </Form.Group>
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
