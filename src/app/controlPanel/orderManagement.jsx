@@ -259,12 +259,6 @@ const OrderManagement = () => {
       const trackingUrl = `${DELIVERY_TRACKING_BASE}/`;
       await axios.post(trackingUrl, payload);
 
-      // 2) Update status to "processing"
-      // PATCH to /deliverytracking/{fullOrderId}/status?status=processing
-      const statusUrl = `${DELIVERY_TRACKING_BASE}/${encodeURIComponent(fullOrderId)}/status`;
-      await axios.put(statusUrl, null, { params: { status: 'processing' } });
-
-      // 3) Reflect status change locally
       setOrders((prev) =>
         prev.map((o) =>
           computeFullOrderId(o) === fullOrderId ? { ...o, status: 'processing' } : o

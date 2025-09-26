@@ -8,7 +8,8 @@ import {
   Form,
   Table,
   Row,
-  Col
+  Col,
+  Checkbox
 } from "react-bootstrap";
 import Pagination from "react-bootstrap/Pagination";
 import { toast } from "react-toastify";
@@ -16,10 +17,8 @@ import axios from "axios";
 import {baseUrl} from "../../constants";
 import { Backdrop, Box, CircularProgress } from "@mui/material";
 import { FaPencilAlt , FaTrash } from "react-icons/fa";
-import { set } from "react-hook-form";
 const StockManagement = () => {
   // Modal visibility states (all modals except suppliers are modals)
-  const [isOpen, setIsOpen] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -33,13 +32,12 @@ const StockManagement = () => {
   const [showTaxModal,setShowTaxModal] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showEditSupplierModal, setShowEditSupplierModal] = useState(false);
-   const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
    const [showUploadModal, setShowUploadModal] = useState(false);
 const [uploadProductId, setUploadProductId] = useState(null);
 const [uploadFile, setUploadFile] = useState(null);
 const [showEditModal, setShowEditModal] = useState(false);
 const [editProductData, setEditProductData] = useState([]);
-const [editForm, setEditForm] = useState({});
   // Toast and loading states
   const [isLoading, setIsLoading] = useState(false);
 
@@ -135,7 +133,6 @@ const [invoiceForm, setInvoiceForm] = useState({
   const [suppliers, setSuppliers] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [editingSupplier, setEditingSupplier] = useState({ id: null, supplierName: "", kraPin: "" });
-
   const resetRestockForm = () => {
   setRestockData({
     supplierId: "",
@@ -539,6 +536,7 @@ const fetchProducts = async (page) => {
         name: productData.name,
         price: productData.price,
         barcodes: productData.barcodes,
+        showOnline:productData.showOnline,
         discountQuantity: productData.discountQuantity,
         priceAfterDiscount: productData.priceAfterDiscount
       };console.log(payload)
@@ -576,7 +574,8 @@ const handleEditShow = (product) => {
     subCategoryId: product.subcategory,
     purchaseCap: product.purchaseCap,
     discountQuantity: product.discountQuantity,
-    barcodes: product.barcodes
+    barcodes: product.barcodes,
+    showOnline:product.showOnline
   });
   setShowEditModal(true);
 };
@@ -606,6 +605,7 @@ const handleEditProduct = async () => {
       name: editProductData.name,
       price: editProductData.price,
       barcodes: editProductData.barcodes,
+      showOnline:editProductData.showOnline,
       discountQuantity: editProductData.discountQuantity,
       priceAfterDiscount: editProductData.priceAfterDiscount
     };
@@ -622,7 +622,7 @@ const handleEditProduct = async () => {
       headers: { "Content-Type": "application/json" }
     });
     setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
-
+    console.log(products)
   } catch (error) {
     console.error(error);
     showToastMessage(
@@ -706,7 +706,7 @@ const handleChooseFile = () => {
 
     // Build multipart/form-data payload
     const formData = new FormData();
-    formData.append("excelFile", stockExcelFile); // <-- Must match [FromForm] IFormFile excelFile
+    formData.append("excelFile", stockExcelFile); 
 
     // Execute the POST
     const response = await axios.post(
@@ -1028,6 +1028,7 @@ const addRestockEntry = () => {
                 <th>Category</th>
                 <th>Subcategory</th>
                 <th>Updated At</th>
+                <th>show online</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1048,6 +1049,7 @@ const addRestockEntry = () => {
                     <td>{categoryMap[String(prod.category)] || prod.category}</td>
                     <td>{subCategoryMap[String(prod.subcategory)] || prod.subcategory}</td>
                     <td>{new Date(prod.updatedAt).toLocaleString()}</td>
+                    <td>{prod.showOnline ? 'Yes' : 'No'}</td>
                     <td>
                       <Button variant="outline-primary" size="sm" onClick={() => openUploadModal(prod.id)}>
                         upload image
@@ -1184,7 +1186,7 @@ const addRestockEntry = () => {
                 <th>KRA ItemCode</th>
                 <th>KRA Tax Rate</th>
                 <th>Item Item Decription</th>
-                <th>UnitMesure of Measure</th>
+                <th>Unit of Measure</th>
                 <th>Created At</th>
                 <th>Updated At</th>
                 <th>Actions</th>
@@ -1697,11 +1699,12 @@ const addRestockEntry = () => {
       </Modal>
 
       {/* edit products modal */}
-     <Modal
+      <Modal
         show={showEditModal}
         onHide={() => !isLoading && handleEditClose()}
         size="lg"
         dialogClassName="small-offset-modal modal-dialog-centered"
+        style={{ borderRadius: '12px' }}
       >
         <Form
           onSubmit={e => {
@@ -1709,202 +1712,356 @@ const addRestockEntry = () => {
             handleEditProduct();
           }}
         >
-          <Modal.Header closeButton>
-            <Modal.Title>Edit Product</Modal.Title>
+          <Modal.Header closeButton className="border-0 pb-0">
+            <Modal.Title className="h4 fw-semibold text-dark mb-0">
+              <i className="bi bi-pencil-square me-2 text-primary"></i>
+              Edit Product
+            </Modal.Title>
           </Modal.Header>
 
-          <Modal.Body>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Inventory Product</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={editProductData.inventoryId}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Product Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={editProductData.name}
-                    onChange={e =>
-                      setEditProductData({ ...editProductData, name: e.target.value })
-                    }
-                    required
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Price</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={editProductData.price}
-                    onChange={e =>
-                      setEditProductData({ ...editProductData, price: e.target.value })
-                    }
-                    required
-                    min="0"
-                    step="1"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Price After Discount</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={editProductData.priceAfterDiscount}
-                    onChange={e =>
-                      setEditProductData({
-                        ...editProductData,
-                        priceAfterDiscount: e.target.value,
-                      })
-                    }
-                    min="0"
-                    step="0.001"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Barcode</Form.Label>
-              <Form.Control
-                type="text"
-                value={editProductData.barcodes}
-                onChange={e =>
-                  setEditProductData({ ...editProductData, barcodes: e.target.value })
-                }
-                placeholder="Enter product barcode"
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Discount Quantity</Form.Label>
-              <Form.Control
-                type="text"
-                value={editProductData.discountQuantity}
-                onChange={e =>
-                  setEditProductData({ ...editProductData, discountQuantity: e.target.value })
-                }
-                placeholder="Enter product discount quantity"
-              />
-            </Form.Group>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Category</Form.Label>
-                  <div className="d-flex">
-                    <Form.Select
-                      value={editProductData.categoryId ?? ""}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setEditProductData({
-                          ...editProductData,
-                          categoryId: val === "" ? null : Number(val),
-                          subCategoryId: null,
-                        });
-                      }}
+          <Modal.Body className="px-4 py-3">
+            {/* Basic Information Section */}
+            <div className="mb-4">
+              <h6 className="text-muted fw-medium mb-3 text-uppercase small">
+                <i className="bi bi-info-circle me-2"></i>Basic Information
+              </h6>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Inventory Product ID
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={editProductData.inventoryId}
                       required
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.id + " - " + cat.categoryName}
-                        </option>
-                      ))}
-                    </Form.Select>
-                    <Button
-                      type="button"
-                      variant="outline-secondary"
-                      className="ms-2"
-                      onClick={() => setShowCategoryModal(true)}
-                      disabled={isLoading}
-                    >
-                      +
-                    </Button>
-                  </div>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Subcategory</Form.Label>
-                  <div className="d-flex">
-                   <Form.Select
-                      name="subCategoryId"
-                      value={editProductData.subCategoryId ?? ""}
+                      className="form-control-lg border-1 rounded-3"
+                      style={{ backgroundColor: '#f8f9fa' }}
+                      readOnly
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Product Name <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={editProductData.name}
                       onChange={e =>
-                        setEditProductData({
-                          ...editProductData,
-                          subCategoryId: e.target.value === "" ? null : Number(e.target.value),
-                        })
+                        setEditProductData({ ...editProductData, name: e.target.value })
                       }
                       required
-                      disabled={editProductData.categoryId === null}
-                      className="me-2"
-                    >
-                      <option value="">Select a subcategory</option>
+                      className="form-control-lg border-1 rounded-3"
+                      placeholder="Enter product name"
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+            </div>
 
-                      {Array.isArray(subCategories)
-                        ? subCategories
-                            .filter(sc => Number(sc.categoryId) === Number(editProductData.categoryId))
-                            .map(sc => (
-                              <option key={sc.id} value={sc.id}>
-                                {sc.subcategoryName}
-                              </option>
-                            ))
-                        : null}
-                    </Form.Select>
+            {/* Pricing Section */}
+            <div className="mb-4">
+              <h6 className="text-muted fw-medium mb-3 text-uppercase small">
+                <i className="bi bi-currency-dollar me-2"></i>Pricing Details
+              </h6>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Regular Price <span className="text-danger">*</span>
+                    </Form.Label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-1 rounded-start-3">
+                        <i className="bi bi-currency-dollar text-muted"></i>
+                      </span>
+                      <Form.Control
+                        type="number"
+                        value={editProductData.price}
+                        onChange={e =>
+                          setEditProductData({ ...editProductData, price: e.target.value })
+                        }
+                        required
+                        min="0"
+                        step="1"
+                        className="form-control-lg border-1 rounded-end-3"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Discounted Price
+                    </Form.Label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-1 rounded-start-3">
+                        <i className="bi bi-tag text-success"></i>
+                      </span>
+                      <Form.Control
+                        type="number"
+                        value={editProductData.priceAfterDiscount}
+                        onChange={e =>
+                          setEditProductData({
+                            ...editProductData,
+                            priceAfterDiscount: e.target.value,
+                          })
+                        }
+                        min="0"
+                        step="0.001"
+                        className="form-control-lg border-1 rounded-end-3"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </div>
 
-                    <Button
-                      type="button"
-                      variant="outline-secondary"
-                      onClick={() => setShowSubCategoryModal(true)}
-                      disabled={isLoading || editProductData.categoryId === null}
-                    >
-                      +
-                    </Button>
-                  </div>
-                  {editProductData.categoryId === null && (
-                    <Form.Text className="text-muted">Please select a category first</Form.Text>
-                  )}
-                </Form.Group>
-              </Col>
-            </Row>
+            {/* Product Details Section */}
+            <div className="mb-4">
+              <h6 className="text-muted fw-medium mb-3 text-uppercase small">
+                <i className="bi bi-box-seam me-2"></i>Product Details
+              </h6>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Barcode
+                    </Form.Label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-1 rounded-start-3">
+                        <i className="bi bi-upc-scan text-muted"></i>
+                      </span>
+                      <Form.Control
+                        type="text"
+                        value={editProductData.barcodes}
+                        onChange={e =>
+                          setEditProductData({ ...editProductData, barcodes: e.target.value })
+                        }
+                        placeholder="Enter product barcode"
+                        className="form-control-lg border-1 rounded-end-3"
+                      />
+                    </div>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Discount Quantity
+                    </Form.Label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-1 rounded-start-3">
+                        <i className="bi bi-percent text-muted"></i>
+                      </span>
+                      <Form.Control
+                        type="text"
+                        value={editProductData.discountQuantity}
+                        onChange={e =>
+                          setEditProductData({ ...editProductData, discountQuantity: e.target.value })
+                        }
+                        placeholder="Enter discount quantity"
+                        className="form-control-lg border-1 rounded-end-3"
+                      />
+                    </div>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label>Purchase Cap</Form.Label>
-              <Form.Control
-                type="number"
-                value={editProductData.purchaseCap}
-                onChange={e =>
-                  setEditProductData({ ...editProductData, purchaseCap: e.target.value })
-                }
-                min="1"
-              />
-            </Form.Group>
+            {/* Category Section */}
+            <div className="mb-4">
+              <h6 className="text-muted fw-medium mb-3 text-uppercase small">
+                <i className="bi bi-folder me-2"></i>Category Management
+              </h6>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Category <span className="text-danger">*</span>
+                    </Form.Label>
+                    <div className="d-flex gap-2">
+                      <Form.Select
+                        value={editProductData.categoryId ?? ""}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setEditProductData({
+                            ...editProductData,
+                            categoryId: val === "" ? null : Number(val),
+                            subCategoryId: null,
+                          });
+                        }}
+                        required
+                        className="form-control-lg border-1 rounded-3"
+                      >
+                        <option value="">Select a category</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.id + " - " + cat.categoryName}
+                          </option>
+                        ))}
+                      </Form.Select>
+                      <Button
+                        type="button"
+                        variant="outline-primary"
+                        className="px-3 border-1 rounded-3"
+                        onClick={() => setShowCategoryModal(true)}
+                        disabled={isLoading}
+                        title="Add new category"
+                      >
+                        <i className="bi bi-plus-lg"></i>
+                      </Button>
+                    </div>
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Subcategory <span className="text-danger">*</span>
+                    </Form.Label>
+                    <div className="d-flex gap-2">
+                    <Form.Select
+                        name="subCategoryId"
+                        value={editProductData.subCategoryId ?? ""}
+                        onChange={e =>
+                          setEditProductData({
+                            ...editProductData,
+                            subCategoryId: e.target.value === "" ? null : Number(e.target.value),
+                          })
+                        }
+                        required
+                        disabled={editProductData.categoryId === null}
+                        className="form-control-lg border-1 rounded-3"
+                      >
+                        <option value="">Select a subcategory</option>
+                        {Array.isArray(subCategories)
+                          ? subCategories
+                              .filter(sc => Number(sc.categoryId) === Number(editProductData.categoryId))
+                              .map(sc => (
+                                <option key={sc.id} value={sc.id}>
+                                  {sc.subcategoryName}
+                                </option>
+                              ))
+                          : null}
+                      </Form.Select>
+
+                      <Button
+                        type="button"
+                        variant="outline-primary"
+                        className="px-3 border-1 rounded-3"
+                        onClick={() => setShowSubCategoryModal(true)}
+                        disabled={isLoading || editProductData.categoryId === null}
+                        title="Add new subcategory"
+                      >
+                        <i className="bi bi-plus-lg"></i>
+                      </Button>
+                    </div>
+                    {editProductData.categoryId === null && (
+                      <Form.Text className="text-muted small mt-1">
+                        <i className="bi bi-info-circle me-1"></i>
+                        Please select a category first
+                      </Form.Text>
+                    )}
+                  </Form.Group>
+                </Col>
+              </Row>
+            </div>
+            {/* Settings Section */}
+            <div className="mb-4">
+              <h6 className="text-muted fw-medium mb-3 text-uppercase small">
+                <i className="bi bi-gear me-2"></i>Product Settings
+              </h6>
+              <Row className="g-3">
+                <Col md={6}>
+                  <Form.Group>
+                    <Form.Label className="fw-medium text-dark mb-2">
+                      Purchase Limit
+                    </Form.Label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-1 rounded-start-3">
+                        <i className="bi bi-basket text-muted"></i>
+                      </span>
+                      <Form.Control
+                        type="number"
+                        value={editProductData.purchaseCap}
+                        onChange={e =>
+                          setEditProductData({ ...editProductData, purchaseCap: e.target.value })
+                        }
+                        min="1"
+                        className="form-control-lg border-1 rounded-end-3"
+                        placeholder="Max items per customer"
+                      />
+                    </div>
+                    <Form.Text className="text-muted small mt-1">
+                      Maximum quantity a customer can purchase
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={6} className="d-flex align-items-end">
+                  <Form.Group className="w-100">
+                    <div className="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border-1">
+                      <div>
+                        <Form.Label className="fw-medium text-dark mb-1">
+                          <i className="bi bi-globe me-2 text-primary"></i>
+                          Show Online
+                        </Form.Label>
+                        <div className="text-muted small">
+                          Display this product on your online store
+                        </div>
+                      </div>
+                      <Form.Check
+                        type="switch"
+                        id="showOnlineSwitch"
+                        className="ms-3"
+                        checked={editProductData.showOnline}
+                        onChange={e => setEditProductData({...editProductData, showOnline: e.target.checked})}
+                        style={{ transform: 'scale(1.2)' }}
+                      />
+                    </div>
+                  </Form.Group>
+                </Col>
+              </Row>
+            </div>
+
           </Modal.Body>
 
-          <Modal.Footer>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => !isLoading && handleEditClose()}
-            >
-              Close
-            </Button>
-            <Button type="submit" variant="primary" disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save Changes"}
-            </Button>
+          <Modal.Footer className="border-0 pt-0 pb-4 px-4">
+            <div className="d-flex justify-content-end gap-3 w-100">
+              <Button
+                type="button"
+                variant="light"
+                className="px-4 py-2 fw-medium rounded-3 border-1"
+                onClick={() => !isLoading && handleEditClose()}
+                disabled={isLoading}
+              >
+                <i className="bi bi-x-lg me-2"></i>
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                variant="primary" 
+                className="px-4 py-2 fw-medium rounded-3 border-0"
+                disabled={isLoading}
+                style={{ 
+                  background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
+                  boxShadow: isLoading ? 'none' : '0 4px 12px rgba(0, 123, 255, 0.3)'
+                }}
+              >
+                {isLoading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Saving Changes...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-check-lg me-2"></i>
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
           </Modal.Footer>
         </Form>
       </Modal>

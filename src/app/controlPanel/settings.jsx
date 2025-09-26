@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TextField, Button, Typography } from '@mui/material';
 import { toast } from 'react-toastify'; // Importing toast
 import 'react-toastify/dist/ReactToastify.css'; // Importing styles for toast notifications
-
+import { baseUrl } from '../../constants';
 const Settings = () => {
   const [activeHours, setActiveHours] = useState({
     openingTime: '09:00',

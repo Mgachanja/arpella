@@ -148,6 +148,9 @@ export default function Cart() {
   /**
    * handleNonCard
    * Orchestrates MPesa / Airtel checkout with fallback to Nairobi CBD coordinates.
+   *
+   * NOTE: payload.orderItems now includes priceType: "Discounted" | "Retail"
+   * depending on whether the discount quantity threshold was met.
    */
   const handleNonCard = async (method) => {
     if (!phoneInput.trim()) {
@@ -171,6 +174,7 @@ export default function Cart() {
         infoToast('Proceeding with default location (Nairobi CBD).');
       }
 
+      // Build payload with priceType per item
       const payload = {
         userId: user.phone,
         orderPaymentType: 'Mpesa',
@@ -178,11 +182,23 @@ export default function Cart() {
         buyerPin: kraPinInput.trim() || 'N/A',
         latitude: coords.lat,
         longitude: coords.lng,
-        orderItems: fusedItems.map((i) => ({
-          productId: Number(i.id),
-          quantity: i.quantity,
-        })),
+        orderItems: fusedItems.map((i) => {
+          const qty = i.quantity;
+          const discountThreshold = parseFloat(i.discountQuantity ?? Infinity);
+          const discounted = i.priceAfterDiscount != null
+            ? parseFloat(i.priceAfterDiscount)
+            : null;
+          const isDiscounted = discounted !== null && qty >= discountThreshold;
+          return {
+            productId: Number(i.id),
+            quantity: qty,
+            priceType: isDiscounted ? 'Discounted' : 'Retail',
+          };
+        }),
       };
+
+      // Log the payload so you can verify priceType fields client-side
+      console.log('Order payload (mpesa):', payload);
 
       try {
         await axios.post(`${baseUrl}/order`, payload);
@@ -196,9 +212,34 @@ export default function Cart() {
     }
 
     if (method === 'airtel') {
+      // For Airtel we also prepare and log the payload similarly before implementing API
+      const payload = {
+        userId: user.phone,
+        orderPaymentType: 'Airtel',
+        phoneNumber: phoneInput.trim(),
+        buyerPin: kraPinInput.trim() || 'N/A',
+        latitude: null,
+        longitude: null,
+        orderItems: fusedItems.map((i) => {
+          const qty = i.quantity;
+          const discountThreshold = parseFloat(i.discountQuantity ?? Infinity);
+          const discounted = i.priceAfterDiscount != null
+            ? parseFloat(i.priceAfterDiscount)
+            : null;
+          const isDiscounted = discounted !== null && qty >= discountThreshold;
+          return {
+            productId: Number(i.id),
+            quantity: qty,
+            priceType: isDiscounted ? 'Discounted' : 'Retail',
+          };
+        }),
+      };
+
+      console.log('Order payload (airtel):', payload);
+
       successToast('Airtel Money flow started.');
       setShowCheckout(false);
-      // TODO: Implement Airtel API integration
+      // TODO: Implement Airtel API integration with the above payload
     }
   };
 
