@@ -234,7 +234,7 @@ const subCategoryMap = React.useMemo(
 const fetchProducts = async (page) => {
     try {
       setIsLoading(true);
-      const res = await axios.get(`${baseUrl}/paged-products?pageNumber=${page}&pageSize=${pageSize}`);
+      const res = await axios.get(`${baseUrl}/pos-paged-products?pageNumber=${page}&pageSize=${pageSize}`);
       const data = Array.isArray(res.data) ? res.data : res.data.content || [];
 
       setProducts(data);
@@ -250,7 +250,6 @@ const fetchProducts = async (page) => {
   useEffect(() => {
     fetchProducts(currentPage);
   }, [currentPage]);
-
   const handlePageChange = (page) => {
     if (page >= 1 && (page < currentPage || hasMore)) {
       setCurrentPage(page);
