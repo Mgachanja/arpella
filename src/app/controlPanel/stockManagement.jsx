@@ -88,7 +88,7 @@ const StockManagement = () => {
     showOnline: false,
   });
 
-  // Merged Add Inventory & Product form
+  // Merged Add Inventory & Product form (now includes supplierId & invoiceNumber)
   const [inventoryProductForm, setInventoryProductForm] = useState({
     inventoryId: "",
     initialQuantity: "",
@@ -103,6 +103,8 @@ const StockManagement = () => {
     categoryId: null,
     subCategoryId: null,
     showOnline: false,
+    supplierId: "", // NEW
+    invoiceNumber: "", // NEW
   });
 
   const [imageData, setImageData] = useState({ isPrimary: false, image: null });
@@ -290,6 +292,8 @@ const StockManagement = () => {
       categoryId: null,
       subCategoryId: null,
       showOnline: false,
+      supplierId: "",
+      invoiceNumber: "",
     });
     setCategoryName("");
     setImageData({ isPrimary: false, image: null });
@@ -640,36 +644,57 @@ const StockManagement = () => {
     try {
       setIsLoading(true);
 
+      // Validate supplier & invoice
+      if (!inventoryProductForm.supplierId) {
+        showToastMessage("Supplier is required.", "danger");
+        return;
+      }
+      if (!inventoryProductForm.invoiceNumber) {
+        showToastMessage("Invoice Number is required.", "danger");
+        return;
+      }
+
       if (!inventoryProductForm.name || inventoryProductForm.price === "") {
         throw new Error("Product name and price are required.");
       }
 
+      // If an inventory (SKU) was provided, create inventory record first
       let targetInventoryId = inventoryProductForm.inventoryId || null;
-
       if (targetInventoryId) {
         const invPayload = {
           productId: inventoryProductForm.inventoryId,
-          stockQuantity: inventoryProductForm.initialQuantity || 0,
-          stockPrice: inventoryProductForm.initialPrice || 0,
-          stockThreshold: inventoryProductForm.threshold || 0,
+          stockQuantity: Number(inventoryProductForm.initialQuantity || 0),
+          stockPrice: Number(inventoryProductForm.initialPrice || 0),
+          stockThreshold: Number(inventoryProductForm.threshold || 0),
+          supplierId: inventoryProductForm.supplierId,
+          invoiceNumber: inventoryProductForm.invoiceNumber,
         };
+        // create inventory record
         await API.inventories.create(invPayload);
       }
 
+      // Build the product payload
       const prodPayload = {
+        // top-level vendor/invoice fields (match backend validation)
+        SupplierId: inventoryProductForm.supplierId,
+        InvoiceNumber: inventoryProductForm.invoiceNumber,
+
+        // product properties
         inventoryId: targetInventoryId || inventoryProductForm.inventoryId || undefined,
-        purchaseCap: inventoryProductForm.purchaseCap,
+        purchaseCap: inventoryProductForm.purchaseCap ? Number(inventoryProductForm.purchaseCap) : undefined,
         category: inventoryProductForm.categoryId,
         subcategory: inventoryProductForm.subCategoryId,
         name: inventoryProductForm.name,
-        price: inventoryProductForm.price,
+        price: Number(inventoryProductForm.price),
         barcodes: inventoryProductForm.barcodes,
         showOnline: !!inventoryProductForm.showOnline,
         discountQuantity: inventoryProductForm.discountQuantity,
-        priceAfterDiscount: inventoryProductForm.priceAfterDiscount,
+        priceAfterDiscount: inventoryProductForm.priceAfterDiscount ? Number(inventoryProductForm.priceAfterDiscount) : undefined,
       };
 
+      // create product
       await API.products.create(prodPayload);
+
       showToastMessage("Inventory (if provided) and product created successfully", "success");
       setShowAddInventoryProductModal(false);
       resetForms();
@@ -677,7 +702,13 @@ const StockManagement = () => {
       fetchStocks(currentInventoryPage);
     } catch (error) {
       console.error("Error creating inventory/product:", error);
-      showToastMessage("Failed to create inventory/product: " + (error?.message || "error"), "danger");
+      // surface backend validation errors when available
+      const backendMsg =
+        error?.response?.data?.errors ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "error";
+      showToastMessage("Failed to create inventory/product: " + JSON.stringify(backendMsg), "danger");
     } finally {
       setIsLoading(false);
     }
@@ -1064,7 +1095,7 @@ const StockManagement = () => {
         <CircularProgress />
       </Backdrop>
 
-      {/* Merged: Add Inventory & Product Modal (removed optional helper text) */}
+      {/* Merged: Add Inventory & Product Modal */}
       <Modal show={showAddInventoryProductModal} onHide={() => !isLoading && setShowAddInventoryProductModal(false)} size="lg" dialogClassName="small-offset-modal modal-dialog-centered">
         <Form onSubmit={(e) => { e.preventDefault(); handleAddInventoryAndProduct(); }}>
           <Modal.Header closeButton><Modal.Title>Add Inventory & Product</Modal.Title></Modal.Header>
@@ -1088,6 +1119,45 @@ const StockManagement = () => {
                   <Form.Label>Threshold</Form.Label>
                   <Form.Control type="number" value={inventoryProductForm.threshold} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, threshold: e.target.value })} min="0" />
                 </Form.Group>
+
+                {/* Supplier & Invoice selects (required) */}
+                <Row className="g-3 mb-3">
+                  <Col md={12}>
+                    <Form.Group>
+                      <Form.Label>Supplier <span className="text-danger">*</span></Form.Label>
+                      <Form.Select
+                        value={inventoryProductForm.supplierId ?? ""}
+                        onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, supplierId: e.target.value, invoiceNumber: "" })}
+                        required
+                      >
+                        <option value="">Select a supplier</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.id}>{s.supplierName}</option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+
+                  <Col md={12} className="mt-2">
+                    <Form.Group>
+                      <Form.Label>Invoice <span className="text-danger">*</span></Form.Label>
+                      <Form.Select
+                        value={inventoryProductForm.invoiceNumber ?? ""}
+                        onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, invoiceNumber: e.target.value })}
+                        required
+                        disabled={!inventoryProductForm.supplierId}
+                      >
+                        <option value="">Select an invoice</option>
+                        {invoices
+                          .filter(inv => !inventoryProductForm.supplierId || String(inv.supplierId) === String(inventoryProductForm.supplierId))
+                          .map((inv) => (
+                            <option key={inv.invoiceId} value={inv.invoiceId}>{inv.invoiceId} {inv.totalAmount ? `— ${inv.totalAmount}` : ""}</option>
+                          ))
+                        }
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
               </Col>
 
               <Col md={6}>
