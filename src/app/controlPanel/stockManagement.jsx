@@ -11,6 +11,7 @@ import {
   Row,
   Col,
   Pagination,
+  InputGroup,
 } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { Backdrop, CircularProgress } from "@mui/material";
@@ -38,6 +39,7 @@ const StockManagement = () => {
 
   // Loading and misc states
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active view
   const [activeView, setActiveView] = useState("stocks");
@@ -45,11 +47,33 @@ const StockManagement = () => {
   // File input ref
   const fileInputRef = useRef(null);
 
-  // Pagination
+  // Pagination constants
   const pageSize = 25;
-  const [currentInventoryPage, setCurrentInventoryPage] = useState(1); // inventories list
-  const [currentPage, setCurrentPage] = useState(1); // products list
-  const [hasMore, setHasMore] = useState(true);
+
+  // INVENTORIES pagination
+  const [currentInventoryPage, setCurrentInventoryPage] = useState(1);
+  const [inventoryJumpPage, setInventoryJumpPage] = useState("");
+  const [hasMoreInventories, setHasMoreInventories] = useState(true);
+  const [lastInventoryPage, setLastInventoryPage] = useState(1);
+
+  // PRODUCTS pagination
+  const [currentProductPage, setCurrentProductPage] = useState(1);
+  const [productJumpPage, setProductJumpPage] = useState("");
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [lastProductPage, setLastProductPage] = useState(1);
+
+  // INVOICES pagination (some APIs may not support paged; we support both)
+  const [currentInvoicePage, setCurrentInvoicePage] = useState(1);
+  const [invoiceJumpPage, setInvoiceJumpPage] = useState("");
+  const [hasMoreInvoices, setHasMoreInvoices] = useState(true);
+
+  // RESTOCK picker's pagination & cache
+  const [restockProductPage, setRestockProductPage] = useState(1);
+  const [hasMoreRestockProducts, setHasMoreRestockProducts] = useState(true);
+  const [restockSearch, setRestockSearch] = useState("");
+  const [restockSearchResults, setRestockSearchResults] = useState([]);
+  const [allRestockProducts, setAllRestockProducts] = useState([]);
+  const restockSearchTimeout = useRef(null);
 
   // Excel files
   const [stockExcelFile, setStockExcelFile] = useState(null);
@@ -64,16 +88,15 @@ const StockManagement = () => {
   const [invoices, setInvoices] = useState([]);
   const [taxList, setTaxList] = useState([]);
 
-  // Forms and related state
+  // Restock form
   const [restockMeta, setRestockMeta] = useState({ invoiceNumber: "", supplierId: "" });
-  const [restockEntries, setRestockEntries] = useState([
-    { productId: "", restockQuantity: "", purchasePrice: "" },
-  ]);
+  const [restockEntries, setRestockEntries] = useState([{ productId: "", restockQuantity: "", purchasePrice: "" }]);
 
+  // Supplier form
   const [supplierData, setSupplierData] = useState({ supplierName: "", kraPin: "" });
   const [editingSupplier, setEditingSupplier] = useState({ id: null, supplierName: "", kraPin: "" });
 
-  // Product form (edit)
+  // Product edit
   const [editProductData, setEditProductData] = useState({
     Id: null,
     inventoryId: "",
@@ -88,7 +111,7 @@ const StockManagement = () => {
     showOnline: false,
   });
 
-  // Merged Add Inventory & Product form (now includes supplierId & invoiceNumber)
+  // Add inventory+product form
   const [inventoryProductForm, setInventoryProductForm] = useState({
     inventoryId: "",
     initialQuantity: "",
@@ -103,10 +126,11 @@ const StockManagement = () => {
     categoryId: null,
     subCategoryId: null,
     showOnline: false,
-    supplierId: "", // NEW
-    invoiceNumber: "", // NEW
+    supplierId: "",
+    invoiceNumber: "",
   });
 
+  // Image upload
   const [imageData, setImageData] = useState({ isPrimary: false, image: null });
   const [uploadProductId, setUploadProductId] = useState(null);
 
@@ -120,11 +144,6 @@ const StockManagement = () => {
   });
 
   const [editStockData, setEditStockData] = useState(null);
-
-  // Restock picker
-  const [restockSearch, setRestockSearch] = useState("");
-  const [restockSearchResults, setRestockSearchResults] = useState([]);
-  const restockSearchTimeout = useRef(null);
 
   // small helpers
   const [categoryName, setCategoryName] = useState("");
@@ -149,22 +168,40 @@ const StockManagement = () => {
     }
   };
 
-  // ----------- Fetch functions using services -----------
+  // -------------------- Generic safe paged fetch helper --------------------
+  // tries to call service.paged(page, pageSize); if not present falls back to .list() and slices
+  const safePagedFetch = async (serviceObj, page = 1) => {
+    if (!serviceObj) return [];
+    if (typeof serviceObj.paged === "function") {
+      return await serviceObj.paged(page, pageSize);
+    }
+    // fallback to list()
+    if (typeof serviceObj.list === "function") {
+      const all = await serviceObj.list();
+      const start = (page - 1) * pageSize;
+      return (Array.isArray(all) ? all.slice(start, start + pageSize) : []);
+    }
+    return [];
+  };
+
+  // ----------- Fetch functions using services (separate for each list) -----------
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [cats, sups, invs, subcats] = await Promise.all([
-        API.categories.list(),
-        API.suppliers.list(),
-        API.invoices.list(),
-        API.subcategories.list(),
+      // categories, suppliers, subcategories, invoices list (not paged)
+      const [cats, sups, subcats] = await Promise.all([
+        API.categories.list().catch(() => []),
+        API.suppliers.list().catch(() => []),
+        API.subcategories.list().catch(() => []),
       ]);
       setCategories(cats || []);
       setSuppliers(sups || []);
-      setInvoices(invs || []);
       setSubCategories(subcats || []);
+      // invoices (we will keep invoices as full list for selects; invoice table is paged later)
+      const invs = await (API.invoices.list ? API.invoices.list().catch(() => []) : []);
+      setInvoices(invs || []);
     } catch (error) {
-      showToastMessage("Failed to fetch data: " + (error.message || "Unknown error"), "danger");
+      showToastMessage("Failed to fetch data: " + (error?.message || "Unknown error"), "danger");
     } finally {
       setIsLoading(false);
     }
@@ -175,12 +212,14 @@ const StockManagement = () => {
     setActiveView("stocks");
   }, []);
 
-  const fetchStocks = async (page = 1) => {
+  // -------- INVENTORIES --------
+  const fetchStocks = async (page = 1, preservePosition = false) => {
     setIsLoading(true);
     try {
-      const data = await API.inventories.paged(page, pageSize);
+      const data = await safePagedFetch(API.inventories, page);
       setInventories(data || []);
-      setHasMore((data || []).length === pageSize);
+      setHasMoreInventories((data || []).length === pageSize);
+      if (!preservePosition) setLastInventoryPage(page);
     } catch (err) {
       console.error("Error fetching stocks:", err);
       showToastMessage("Failed to fetch stocks", "danger");
@@ -191,20 +230,31 @@ const StockManagement = () => {
 
   useEffect(() => {
     fetchStocks(currentInventoryPage);
+    // reset restock cache when inventory page changes (restock uses separate cache mechanism)
   }, [currentInventoryPage]);
 
   const handleInventoryPageChange = (page) => {
-    if (page >= 1 && (page < currentInventoryPage || hasMore)) {
+    if (page >= 1 && (page < currentInventoryPage || hasMoreInventories)) {
       setCurrentInventoryPage(page);
     }
   };
 
-  const fetchProducts = async (page = 1) => {
+  const handleInventoryJumpToPage = () => {
+    const page = parseInt(inventoryJumpPage);
+    if (!isNaN(page) && page >= 1) {
+      setCurrentInventoryPage(page);
+      setInventoryJumpPage("");
+    }
+  };
+
+  // -------- PRODUCTS --------
+  const fetchProducts = async (page = 1, preservePosition = false) => {
     setIsLoading(true);
     try {
-      const data = await API.products.paged(page, pageSize);
+      const data = await safePagedFetch(API.products, page);
       setProducts(data || []);
-      setHasMore((data || []).length === pageSize);
+      setHasMoreProducts((data || []).length === pageSize);
+      if (!preservePosition) setLastProductPage(page);
     } catch (err) {
       console.error("Error fetching products:", err);
       showToastMessage("Failed to fetch products", "danger");
@@ -214,31 +264,137 @@ const StockManagement = () => {
   };
 
   useEffect(() => {
-    fetchProducts(currentPage);
-  }, [currentPage]);
+    fetchProducts(currentProductPage);
+  }, [currentProductPage]);
 
-  const handlePageChange = (page) => {
-    if (page >= 1 && (page < currentPage || hasMore)) {
-      setCurrentPage(page);
+  const handleProductPageChange = (page) => {
+    if (page >= 1 && (page < currentProductPage || hasMoreProducts)) {
+      setCurrentProductPage(page);
     }
   };
 
+  const handleProductJumpToPage = () => {
+    const page = parseInt(productJumpPage);
+    if (!isNaN(page) && page >= 1) {
+      setCurrentProductPage(page);
+      setProductJumpPage("");
+    }
+  };
+
+  // -------- INVOICES (paged if possible, fallback to slice) --------
+  const fetchInvoicesPaged = async (page = 1) => {
+    try {
+      let data = [];
+      if (typeof API.invoices.paged === "function") {
+        data = await API.invoices.paged(page, pageSize);
+      } else if (typeof API.invoices.list === "function") {
+        const all = await API.invoices.list();
+        const start = (page - 1) * pageSize;
+        data = (Array.isArray(all) ? all.slice(start, start + pageSize) : []);
+      }
+      setInvoices((data || []));
+      setHasMoreInvoices((data || []).length === pageSize);
+    } catch (err) {
+      console.error("Error fetching invoices:", err);
+      showToastMessage("Failed to fetch invoices", "danger");
+    }
+  };
+
+  useEffect(() => {
+    // initial invoices page load (when invoice view is opened we call fetchInvoicesPaged)
+  }, [currentInvoicePage]);
+
+  const handleInvoicePageChange = (page) => {
+    if (page >= 1 && (page < currentInvoicePage || hasMoreInvoices)) {
+      setCurrentInvoicePage(page);
+      fetchInvoicesPaged(page);
+    }
+  };
+
+  const handleInvoiceJumpToPage = () => {
+    const page = parseInt(invoiceJumpPage);
+    if (!isNaN(page) && page >= 1) {
+      setCurrentInvoicePage(page);
+      setInvoiceJumpPage("");
+      fetchInvoicesPaged(page);
+    }
+  };
+
+  // -------- RESTOCK PRODUCTS (for picker) ----------
+  const fetchRestockProducts = async (page = 1, append = false) => {
+    try {
+      const data = await safePagedFetch(API.inventories, page);
+      if (append) {
+        setAllRestockProducts((prev) => [...prev, ...(data || [])]);
+      } else {
+        setAllRestockProducts(data || []);
+      }
+      setHasMoreRestockProducts((data || []).length === pageSize);
+    } catch (err) {
+      console.error("Error fetching restock products:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (showRestockModal) {
+      setRestockProductPage(1);
+      fetchRestockProducts(1, false);
+    }
+  }, [showRestockModal]);
+
+  const loadMoreRestockProducts = async () => {
+    if (!hasMoreRestockProducts) return;
+    const next = restockProductPage + 1;
+    setRestockProductPage(next);
+    await fetchRestockProducts(next, true);
+  };
+
+  // debounce client-side search on the restock cache
+  useEffect(() => {
+    if (restockSearchTimeout.current) clearTimeout(restockSearchTimeout.current);
+    restockSearchTimeout.current = setTimeout(() => {
+      const q = (restockSearch || "").trim().toLowerCase();
+      if (!q) {
+        setRestockSearchResults(allRestockProducts.slice(0, 50));
+      } else {
+        setRestockSearchResults(
+          allRestockProducts
+            .filter((inv) => {
+              const pid = (inv.productId || "").toString().toLowerCase();
+              const name = ((inv.productName || inv.name) || "").toString().toLowerCase();
+              return pid.includes(q) || name.includes(q);
+            })
+            .slice(0, 200)
+        );
+      }
+    }, 200);
+    return () => {
+      if (restockSearchTimeout.current) clearTimeout(restockSearchTimeout.current);
+    };
+  }, [restockSearch, allRestockProducts]);
+
+  const pickRestockProduct = (entryIndex, productId) => {
+    updateRestockEntry(entryIndex, "productId", productId);
+  };
+
+  // --------- Suppliers & invoices fetch wrapper -----------
   const fetchSuppliers = async () => {
     setIsLoading(true);
     try {
-      const data = await API.suppliers.list();
+      const data = await (API.suppliers.list ? API.suppliers.list() : []);
       setSuppliers(data || []);
       setActiveView("suppliers");
     } catch (error) {
-      showToastMessage("Failed to fetch suppliers: " + (error.message || "Unknown error"), "danger");
+      showToastMessage("Failed to fetch suppliers: " + (error?.message || "Unknown error"), "danger");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // helper to refresh invoices list (full)
   const fetchInvoices = async () => {
     try {
-      const data = await API.invoices.list();
+      const data = await (API.invoices.list ? API.invoices.list() : []);
       setInvoices(data || []);
       setActiveView("invoice");
     } catch (err) {
@@ -247,9 +403,10 @@ const StockManagement = () => {
     }
   };
 
+  // tax data
   const fetchTaxData = async () => {
     try {
-      const data = await API.goodsInfo.list();
+      const data = await (API.goodsInfo && API.goodsInfo.list ? API.goodsInfo.list() : []);
       setTaxList(data || []);
     } catch (err) {
       console.error(err);
@@ -305,7 +462,7 @@ const StockManagement = () => {
 
   // ----------- Handlers for create/update actions using services -----------
   const handleAddCategory = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     try {
       setIsLoading(true);
       if (!categoryName.trim()) throw new Error("Category name is required");
@@ -323,7 +480,7 @@ const StockManagement = () => {
   };
 
   const handleAddSubCategory = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     try {
       setIsLoading(true);
       if (!subCategoryData.subcategoryName.trim() || subCategoryData.categoryId === null) {
@@ -403,7 +560,10 @@ const StockManagement = () => {
   const handleEditShow = async (product) => {
     try {
       setIsLoading(true);
-      const resp = await API.products.get(product.id);
+      // remember the page so we can return to it after update
+      setLastProductPage(currentProductPage);
+
+      const resp = await (API.products.get ? API.products.get(product.id) : Promise.resolve(product));
       const p = Array.isArray(resp) ? resp[0] : resp;
       const source = p || product;
       setEditProductData({
@@ -452,8 +612,9 @@ const StockManagement = () => {
       await API.products.update(editProductData.Id, payload);
       showToastMessage("Product updated successfully", "success");
       setShowEditModal(false);
-      const prodRes = await API.products.list();
-      setProducts(prodRes || []);
+      // return to the last product page the user was on
+      fetchProducts(lastProductPage, true);
+      setCurrentProductPage(lastProductPage);
     } catch (error) {
       console.error(error);
       showToastMessage("Failed to update product: " + (error?.message || "error"), "danger");
@@ -507,6 +668,7 @@ const StockManagement = () => {
       setIsLoading(true);
       const formData = new FormData();
       formData.append("file", productsExcelFile);
+      // original code used inventories.uploadExcel - keep that behavior
       await API.inventories.uploadExcel(formData);
       showToastMessage("Products Excel uploaded successfully", "success");
       setShowProductsExcelModal(false);
@@ -561,6 +723,8 @@ const StockManagement = () => {
       toast.success("All restock entries added.");
       setShowRestockModal(false);
       resetRestockForm();
+      // refresh inventories page (keep page)
+      fetchStocks(currentInventoryPage, true);
     } catch (error) {
       console.error(error);
       toast.error("An error occurred while saving restocks.");
@@ -591,11 +755,109 @@ const StockManagement = () => {
 
   // Edit stock modal open
   const handleEditStock = (stock) => {
+    setLastInventoryPage(currentInventoryPage);
     setEditStockData(stock);
     setShowEditStockModal(true);
   };
 
-  // Render helpers
+  // ----------------- IMPROVED ADD INVENTORY & PRODUCT FLOW -----------------
+  // This version attempts to create inventory first (if SKU provided),
+  // and on product creation failure attempts to roll back the created inventory.
+  const handleAddInventoryAndProduct = async () => {
+    setIsSubmitting(true);
+    setIsLoading(true);
+    let inventoryCreated = false;
+    let inventoryIdentifier = null; // productId or id depending on your API
+    try {
+      // Validate required fields
+      if (!inventoryProductForm.supplierId) {
+        showToastMessage("Supplier is required.", "danger");
+        return;
+      }
+      if (!inventoryProductForm.invoiceNumber) {
+        showToastMessage("Invoice Number is required.", "danger");
+        return;
+      }
+      if (!inventoryProductForm.name || inventoryProductForm.price === "") {
+        throw new Error("Product name and price are required.");
+      }
+
+      let targetInventoryId = inventoryProductForm.inventoryId || null;
+
+      // If SKU/inventory id provided, create inventory record first
+      if (targetInventoryId) {
+        const invPayload = {
+          productId: inventoryProductForm.inventoryId,
+          stockQuantity: Number(inventoryProductForm.initialQuantity || 0),
+          stockPrice: Number(inventoryProductForm.initialPrice || 0),
+          stockThreshold: Number(inventoryProductForm.threshold || 0),
+          supplierId: inventoryProductForm.supplierId,
+          invoiceNumber: inventoryProductForm.invoiceNumber,
+        };
+        // create inventory record
+        const invResp = await API.inventories.create(invPayload);
+        inventoryCreated = true;
+        // store identifier for potential rollback - API may return id or productId
+        inventoryIdentifier = invResp?.id || invResp?.productId || targetInventoryId;
+        showToastMessage("Inventory created successfully", "success");
+      }
+
+      // Build product payload
+      const prodPayload = {
+        SupplierId: inventoryProductForm.supplierId,
+        InvoiceNumber: inventoryProductForm.invoiceNumber,
+        inventoryId: targetInventoryId || inventoryProductForm.inventoryId || undefined,
+        purchaseCap: inventoryProductForm.purchaseCap ? Number(inventoryProductForm.purchaseCap) : undefined,
+        category: inventoryProductForm.categoryId,
+        subcategory: inventoryProductForm.subCategoryId,
+        name: inventoryProductForm.name,
+        price: Number(inventoryProductForm.price),
+        barcodes: inventoryProductForm.barcodes,
+        showOnline: !!inventoryProductForm.showOnline,
+        discountQuantity: inventoryProductForm.discountQuantity,
+        priceAfterDiscount: inventoryProductForm.priceAfterDiscount ? Number(inventoryProductForm.priceAfterDiscount) : undefined,
+      };
+
+      // create product
+      await API.products.create(prodPayload);
+      showToastMessage("Product created successfully", "success");
+      setShowAddInventoryProductModal(false);
+      resetForms();
+
+      // refresh products & stocks preserving page
+      fetchProducts(lastProductPage || currentProductPage, true);
+      if (inventoryCreated) fetchStocks(lastInventoryPage || currentInventoryPage, true);
+    } catch (error) {
+      console.error("Error in create flow:", error);
+      // attempt rollback if inventory was created but product failed
+      const backendMsg = error?.response?.data?.message || error?.message || JSON.stringify(error);
+      if (inventoryCreated && inventoryIdentifier) {
+        showToastMessage(`Product creation failed after inventory was created: ${backendMsg}. Attempting to rollback created inventory...`, "warning");
+        try {
+          // Try to remove inventory using identifier. Adjust this if your API requires different params.
+          // If your API's remove is by id, and invResp.id was used above, this will work.
+          // If your API requires a productId, this may still work if the service handles it.
+          if (typeof API.inventories.remove === "function") {
+            await API.inventories.remove(inventoryIdentifier);
+            showToastMessage("Rolled back created inventory successfully", "success");
+          } else {
+            // No remove available — instruct user
+            showToastMessage("Product creation failed and automatic rollback is unavailable (no inventories.remove). Please remove the created inventory manually.", "danger");
+          }
+        } catch (rmErr) {
+          console.error("Rollback failed:", rmErr);
+          showToastMessage("Failed to rollback created inventory automatically. Please remove it manually.", "danger");
+        }
+      } else {
+        showToastMessage("Failed to create product/inventory: " + backendMsg, "danger");
+      }
+    } finally {
+      setIsSubmitting(false);
+      setIsLoading(false);
+    }
+  };
+
+  // ---------------- Render helpers ----------------
   const categoryMap = useMemo(
     () => Object.fromEntries((categories || []).map((c) => [String(c.id), c.categoryName ?? c.name ?? ""])),
     [categories]
@@ -613,108 +875,10 @@ const StockManagement = () => {
       .map((sc) => <option key={sc.id} value={sc.id}>{sc.subcategoryName}</option>);
   };
 
-  // ----------------- RESTOCK SEARCH (debounced client-side on current page) -----------------
-  useEffect(() => {
-    if (restockSearchTimeout.current) clearTimeout(restockSearchTimeout.current);
-    restockSearchTimeout.current = setTimeout(() => {
-      const q = (restockSearch || "").trim().toLowerCase();
-      if (!q) {
-        setRestockSearchResults(inventories.slice(0, 50));
-      } else {
-        setRestockSearchResults(
-          inventories.filter((inv) => {
-            const pid = (inv.productId || "").toString().toLowerCase();
-            const name = ((inv.productName || inv.name) || "").toString().toLowerCase();
-            return pid.includes(q) || name.includes(q);
-          }).slice(0, 200)
-        );
-      }
-    }, 250);
-    return () => {
-      if (restockSearchTimeout.current) clearTimeout(restockSearchTimeout.current);
-    };
-  }, [restockSearch, inventories]);
+  // ----------------- RESTOCK SEARCH (client-side on cached pages) -----------------
+  // handled above (restockSearchResults from allRestockProducts)
 
-  const pickRestockProduct = (entryIndex, productId) => {
-    updateRestockEntry(entryIndex, "productId", productId);
-  };
-
-  // ----------------- MERGED "ADD INVENTORY & PRODUCT" FLOW (uses services) -----------------
-  const handleAddInventoryAndProduct = async () => {
-    try {
-      setIsLoading(true);
-
-      // Validate supplier & invoice
-      if (!inventoryProductForm.supplierId) {
-        showToastMessage("Supplier is required.", "danger");
-        return;
-      }
-      if (!inventoryProductForm.invoiceNumber) {
-        showToastMessage("Invoice Number is required.", "danger");
-        return;
-      }
-
-      if (!inventoryProductForm.name || inventoryProductForm.price === "") {
-        throw new Error("Product name and price are required.");
-      }
-
-      // If an inventory (SKU) was provided, create inventory record first
-      let targetInventoryId = inventoryProductForm.inventoryId || null;
-      if (targetInventoryId) {
-        const invPayload = {
-          productId: inventoryProductForm.inventoryId,
-          stockQuantity: Number(inventoryProductForm.initialQuantity || 0),
-          stockPrice: Number(inventoryProductForm.initialPrice || 0),
-          stockThreshold: Number(inventoryProductForm.threshold || 0),
-          supplierId: inventoryProductForm.supplierId,
-          invoiceNumber: inventoryProductForm.invoiceNumber,
-        };
-        // create inventory record
-        await API.inventories.create(invPayload);
-      }
-
-      // Build the product payload
-      const prodPayload = {
-        // top-level vendor/invoice fields (match backend validation)
-        SupplierId: inventoryProductForm.supplierId,
-        InvoiceNumber: inventoryProductForm.invoiceNumber,
-
-        // product properties
-        inventoryId: targetInventoryId || inventoryProductForm.inventoryId || undefined,
-        purchaseCap: inventoryProductForm.purchaseCap ? Number(inventoryProductForm.purchaseCap) : undefined,
-        category: inventoryProductForm.categoryId,
-        subcategory: inventoryProductForm.subCategoryId,
-        name: inventoryProductForm.name,
-        price: Number(inventoryProductForm.price),
-        barcodes: inventoryProductForm.barcodes,
-        showOnline: !!inventoryProductForm.showOnline,
-        discountQuantity: inventoryProductForm.discountQuantity,
-        priceAfterDiscount: inventoryProductForm.priceAfterDiscount ? Number(inventoryProductForm.priceAfterDiscount) : undefined,
-      };
-
-      // create product
-      await API.products.create(prodPayload);
-
-      showToastMessage("Inventory (if provided) and product created successfully", "success");
-      setShowAddInventoryProductModal(false);
-      resetForms();
-      fetchProducts(currentPage);
-      fetchStocks(currentInventoryPage);
-    } catch (error) {
-      console.error("Error creating inventory/product:", error);
-      // surface backend validation errors when available
-      const backendMsg =
-        error?.response?.data?.errors ||
-        error?.response?.data?.message ||
-        error?.message ||
-        "error";
-      showToastMessage("Failed to create inventory/product: " + JSON.stringify(backendMsg), "danger");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ---- JSX return ----
+  // ----------------- JSX -----------------
   return (
     <div>
       <style type="text/css">{`
@@ -732,10 +896,10 @@ const StockManagement = () => {
           <Navbar.Toggle />
           <Navbar.Collapse>
             <Nav className="justify-content-center" style={{ width: "100%" }}>
-              <Nav.Link active={activeView === "stocks"} onClick={() => setActiveView("stocks")}>Stocks</Nav.Link>
-              <Nav.Link active={activeView === "products"} onClick={() => setActiveView("products")}>Products</Nav.Link>
+              <Nav.Link active={activeView === "stocks"} onClick={() => { setActiveView("stocks"); fetchStocks(currentInventoryPage); }}>Stocks</Nav.Link>
+              <Nav.Link active={activeView === "products"} onClick={() => { setActiveView("products"); fetchProducts(currentProductPage); }}>Products</Nav.Link>
               <Nav.Link active={activeView === "suppliers"} onClick={() => { fetchSuppliers(); }}>Suppliers</Nav.Link>
-              <Nav.Link active={activeView === "invoice"} onClick={() => fetchInvoices()}>Invoices</Nav.Link>
+              <Nav.Link active={activeView === "invoice"} onClick={() => { fetchInvoices(); fetchInvoicesPaged(currentInvoicePage); }}>Invoices</Nav.Link>
               <Nav.Link active={activeView === "taxData"} onClick={() => { fetchTaxData(); setActiveView("taxData"); }}>Tax Data</Nav.Link>
             </Nav>
           </Navbar.Collapse>
@@ -763,13 +927,20 @@ const StockManagement = () => {
             <Button onClick={() => setShowStockExcelModal(true)}>Upload Stock Excel</Button>
           </div>
 
-          <Pagination className="mt-3 justify-content-center">
-            <Pagination.Prev onClick={() => handleInventoryPageChange(currentInventoryPage - 1)} disabled={currentInventoryPage === 1} />
-            <Pagination.Item active> page {currentInventoryPage}</Pagination.Item>
-            <Pagination.Next onClick={() => handleInventoryPageChange(currentInventoryPage + 1)} disabled={!hasMore} />
-          </Pagination>
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <Pagination className="m-0">
+              <Pagination.Prev onClick={() => handleInventoryPageChange(currentInventoryPage - 1)} disabled={currentInventoryPage === 1} />
+              <Pagination.Item active> page {currentInventoryPage}</Pagination.Item>
+              <Pagination.Next onClick={() => handleInventoryPageChange(currentInventoryPage + 1)} disabled={!hasMoreInventories} />
+            </Pagination>
 
-          <Table striped bordered hover className="mt-4">
+            <InputGroup style={{ width: 220 }} size="sm" className="ms-auto">
+              <Form.Control placeholder="Jump to page #" value={inventoryJumpPage} onChange={(e) => setInventoryJumpPage(e.target.value)} />
+              <Button variant="outline-secondary" onClick={handleInventoryJumpToPage}>Go</Button>
+            </InputGroup>
+          </div>
+
+          <Table striped bordered hover className="mt-2">
             <thead>
               <tr>
                 <th>SKU</th>
@@ -815,13 +986,20 @@ const StockManagement = () => {
             <Button onClick={() => setShowProductsExcelModal(true)}>Upload Products Excel</Button>
           </div>
 
-          <Pagination className="mt-3 justify-content-center">
-            <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
-            <Pagination.Item active> page {currentPage}</Pagination.Item>
-            <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={!hasMore} />
-          </Pagination>
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <Pagination className="m-0">
+              <Pagination.Prev onClick={() => handleProductPageChange(currentProductPage - 1)} disabled={currentProductPage === 1} />
+              <Pagination.Item active> page {currentProductPage}</Pagination.Item>
+              <Pagination.Next onClick={() => handleProductPageChange(currentProductPage + 1)} disabled={!hasMoreProducts} />
+            </Pagination>
 
-          <Table striped bordered hover className="mt-4">
+            <InputGroup style={{ width: 220 }} size="sm" className="ms-auto">
+              <Form.Control placeholder="Jump to page #" value={productJumpPage} onChange={(e) => setProductJumpPage(e.target.value)} />
+              <Button variant="outline-secondary" onClick={handleProductJumpToPage}>Go</Button>
+            </InputGroup>
+          </div>
+
+          <Table striped bordered hover className="mt-2">
             <thead>
               <tr>
                 <th>Name</th>
@@ -859,7 +1037,7 @@ const StockManagement = () => {
         </Container>
       )}
 
-      {/* Suppliers */}
+      {/* Suppliers view */}
       {activeView === "suppliers" && (
         <Container>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
@@ -904,7 +1082,7 @@ const StockManagement = () => {
         </Container>
       )}
 
-      {/* Invoices */}
+      {/* Invoices view */}
       {activeView === "invoice" && (
         <Container>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
@@ -915,11 +1093,24 @@ const StockManagement = () => {
             <Button onClick={() => setShowInvoiceModal(true)}>Add Invoice</Button>
           </div>
 
-          <Table striped bordered hover className="mt-4">
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <Pagination className="m-0">
+              <Pagination.Prev onClick={() => handleInvoicePageChange(currentInvoicePage - 1)} disabled={currentInvoicePage === 1} />
+              <Pagination.Item active> page {currentInvoicePage}</Pagination.Item>
+              <Pagination.Next onClick={() => handleInvoicePageChange(currentInvoicePage + 1)} disabled={!hasMoreInvoices} />
+            </Pagination>
+
+            <InputGroup style={{ width: 220 }} size="sm" className="ms-auto">
+              <Form.Control placeholder="Jump to page #" value={invoiceJumpPage} onChange={(e) => setInvoiceJumpPage(e.target.value)} />
+              <Button variant="outline-secondary" onClick={handleInvoiceJumpToPage}>Go</Button>
+            </InputGroup>
+          </div>
+
+          <Table striped bordered hover className="mt-2">
             <thead>
               <tr>
                 <th>Invoice ID</th>
-                <th>Supplier Name</th>
+                <th>Supplier Name / ID</th>
                 <th>Invoice Date</th>
                 <th>Actions</th>
               </tr>
@@ -931,9 +1122,9 @@ const StockManagement = () => {
                 <tr><td colSpan="4" className="text-center">No invoices found</td></tr>
               ) : (
                 invoices.map((invoice) => (
-                  <tr key={invoice.invoiceId}>
-                    <td>{invoice.invoiceId}</td>
-                    <td>{invoice.supplierId}</td>
+                  <tr key={invoice.invoiceId ?? invoice.id}>
+                    <td>{invoice.invoiceId ?? invoice.id}</td>
+                    <td>{invoice.supplierName ?? invoice.supplierId}</td>
                     <td>{invoice.createdAt ? new Date(invoice.createdAt).toLocaleString() : ""}</td>
                     <td>
                       <Button variant="outline-primary" size="sm" href={`${baseUrl}/invoices/${invoice.id}`}>Edit</Button>
@@ -993,102 +1184,6 @@ const StockManagement = () => {
       )}
 
       {/* ---------------------- MODALS ---------------------- */}
-
-      {/* Restock Modal */}
-      <Modal show={showRestockModal} onHide={() => setShowRestockModal(false)} size="lg" centered>
-        <Modal.Header closeButton><Modal.Title>Add Restock Data</Modal.Title></Modal.Header>
-        <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
-          <Form>
-            <Row className="mb-3">
-              <Col>
-                <Form.Label>Supplier</Form.Label>
-                <Form.Select value={restockMeta.supplierId} onChange={(e) => setRestockMeta({ ...restockMeta, supplierId: e.target.value })}>
-                  <option value="">Select supplier</option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>{supplier.supplierName}</option>
-                  ))}
-                </Form.Select>
-              </Col>
-              <Col>
-                <Form.Label>Invoice</Form.Label>
-                <Form.Select value={restockMeta.invoiceNumber} onChange={(e) => setRestockMeta({ ...restockMeta, invoiceNumber: e.target.value })}>
-                  <option value="">Select the invoice</option>
-                  {invoices.map((inv) => (
-                    <option key={inv.invoiceId} value={inv.invoiceId}>{inv.invoiceId}</option>
-                  ))}
-                </Form.Select>
-              </Col>
-            </Row>
-
-            {restockEntries.map((entry, index) => (
-              <div key={index} style={{ marginBottom: 24, padding: 16, border: "1px solid #ccc", borderRadius: 8, backgroundColor: "#f9f9f9" }}>
-                <Row className="mb-2">
-                  <Col md={6}>
-                    <Form.Label>Find product (search)</Form.Label>
-                    <Form.Control
-                      placeholder="Search SKU or name..."
-                      value={restockSearch}
-                      onChange={(e) => setRestockSearch(e.target.value)}
-                    />
-                    <div className="restock-search-results mt-2">
-                      {restockSearchResults.length === 0 ? (
-                        <div style={{ padding: 8 }} className="text-muted small">No results on this page. Try changing page or typing different text.</div>
-                      ) : restockSearchResults.map((inv) => (
-                        <div
-                          key={inv.productId}
-                          className="restock-search-item"
-                          onClick={() => pickRestockProduct(index, inv.productId)}
-                          title={`Pick ${inv.productId}`}
-                        >
-                          <strong>{inv.productId}</strong> {inv.productName ? `— ${inv.productName}` : ""}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="d-flex gap-2 mt-2">
-                      <Button size="sm" onClick={() => { if (currentInventoryPage > 1) setCurrentInventoryPage(currentInventoryPage - 1); }}>Prev page</Button>
-                      <Button size="sm" onClick={() => { if (hasMore) setCurrentInventoryPage(currentInventoryPage + 1); }}>Next page</Button>
-                      <div className="ms-auto text-muted small align-self-center">Page {currentInventoryPage}</div>
-                    </div>
-                    <Form.Text className="text-muted">Click an item to populate product field below.</Form.Text>
-                  </Col>
-
-                  <Col md={3}>
-                    <Form.Label>Quantity</Form.Label>
-                    <Form.Control type="number" value={entry.restockQuantity} onChange={(e) => updateRestockEntry(index, "restockQuantity", e.target.value)} />
-                  </Col>
-
-                  <Col md={3}>
-                    <Form.Label>Purchase Price</Form.Label>
-                    <Form.Control type="number" value={entry.purchasePrice} onChange={(e) => updateRestockEntry(index, "purchasePrice", e.target.value)} />
-                  </Col>
-                </Row>
-
-                <Row>
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Selected Product ID</Form.Label>
-                      <Form.Control type="text" value={entry.productId} onChange={(e) => updateRestockEntry(index, "productId", e.target.value)} />
-                    </Form.Group>
-                  </Col>
-                </Row>
-
-                <div className="d-flex justify-content-end mt-2">
-                  <Button variant="outline-danger" size="sm" onClick={() => removeRestockEntry(index)}>Remove</Button>
-                </div>
-              </div>
-            ))}
-
-            <div className="d-flex justify-content-end">
-              <Button variant="secondary" onClick={addRestockEntry}>+ Add Another Product</Button>
-            </div>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-secondary" onClick={() => setShowRestockModal(false)}>Close</Button>
-          <Button variant="primary" onClick={handleAddRestock} disabled={isLoading}>{isLoading ? "Saving…" : "Save Restock"}</Button>
-        </Modal.Footer>
-      </Modal>
 
       {/* Backdrop spinner */}
       <Backdrop open={isLoading} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, color: "#fff" }}>
@@ -1151,7 +1246,7 @@ const StockManagement = () => {
                         {invoices
                           .filter(inv => !inventoryProductForm.supplierId || String(inv.supplierId) === String(inventoryProductForm.supplierId))
                           .map((inv) => (
-                            <option key={inv.invoiceId} value={inv.invoiceId}>{inv.invoiceId} {inv.totalAmount ? `— ${inv.totalAmount}` : ""}</option>
+                            <option key={inv.invoiceId ?? inv.id} value={inv.invoiceId ?? inv.id}>{(inv.invoiceId ?? inv.id)} {inv.totalAmount ? `— ${inv.totalAmount}` : ""}</option>
                           ))
                         }
                       </Form.Select>
@@ -1240,7 +1335,7 @@ const StockManagement = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button type="button" variant="secondary" onClick={() => !isLoading && setShowAddInventoryProductModal(false)}>Close</Button>
-            <Button type="submit" variant="primary" disabled={isLoading}>{isLoading ? "Adding..." : "Submit"}</Button>
+            <Button type="submit" variant="primary" disabled={isLoading || isSubmitting}>{isLoading ? "Adding..." : "Submit"}</Button>
           </Modal.Footer>
         </Form>
       </Modal>
@@ -1320,7 +1415,7 @@ const StockManagement = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Edit Product Modal (unchanged behavior) */}
+      {/* Edit Product Modal */}
       <Modal show={showEditModal} onHide={() => !isLoading && handleEditClose()} size="lg" dialogClassName="small-offset-modal modal-dialog-centered" style={{ borderRadius: "12px" }}>
         <Form onSubmit={(e) => { e.preventDefault(); handleEditProduct(); }}>
           <Modal.Header closeButton className="border-0 pb-0"><Modal.Title className="h4 fw-semibold text-dark mb-0">Edit Product</Modal.Title></Modal.Header>
@@ -1570,14 +1665,16 @@ const StockManagement = () => {
         <Modal.Footer>
           <Button variant="secondary" onClick={() => !isLoading && setShowEditStockModal(false)}>Close</Button>
           <Button variant="primary" onClick={async () => {
-            // update flow: call inventories.update if you want; left as-is (you can wire to API.inventories.update)
             if (!editStockData) return;
             try {
               setIsLoading(true);
+              // call inventories.update - adapt if your API signature differs
               await API.inventories.update(editStockData.productId, editStockData);
               showToastMessage("Stock updated successfully", "success");
               setShowEditStockModal(false);
-              fetchStocks(currentInventoryPage);
+              // restore to last inventory page (memory)
+              fetchStocks(lastInventoryPage || currentInventoryPage, true);
+              setCurrentInventoryPage(lastInventoryPage || currentInventoryPage);
             } catch (err) {
               showToastMessage("Failed to update stock: " + (err?.message || "error"), "danger");
             } finally {
@@ -1620,6 +1717,102 @@ const StockManagement = () => {
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowStockExcelModal(false)}>Close</Button>
           <Button variant="primary" onClick={handleUploadStockExcel} disabled={isLoading || !stockExcelFile}>{isLoading ? "Uploading..." : "Upload"}</Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Restock Modal */}
+      <Modal show={showRestockModal} onHide={() => setShowRestockModal(false)} size="lg" centered>
+        <Modal.Header closeButton><Modal.Title>Add Restock Data</Modal.Title></Modal.Header>
+        <Modal.Body style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          <Form>
+            <Row className="mb-3">
+              <Col>
+                <Form.Label>Supplier</Form.Label>
+                <Form.Select value={restockMeta.supplierId} onChange={(e) => setRestockMeta({ ...restockMeta, supplierId: e.target.value })}>
+                  <option value="">Select supplier</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>{supplier.supplierName}</option>
+                  ))}
+                </Form.Select>
+              </Col>
+              <Col>
+                <Form.Label>Invoice</Form.Label>
+                <Form.Select value={restockMeta.invoiceNumber} onChange={(e) => setRestockMeta({ ...restockMeta, invoiceNumber: e.target.value })}>
+                  <option value="">Select the invoice</option>
+                  {invoices.map((inv) => (
+                    <option key={inv.invoiceId ?? inv.id} value={inv.invoiceId ?? inv.id}>{inv.invoiceId ?? inv.id}</option>
+                  ))}
+                </Form.Select>
+              </Col>
+            </Row>
+
+            {restockEntries.map((entry, index) => (
+              <div key={index} style={{ marginBottom: 24, padding: 16, border: "1px solid #ccc", borderRadius: 8, backgroundColor: "#f9f9f9" }}>
+                <Row className="mb-2">
+                  <Col md={6}>
+                    <Form.Label>Find product (search)</Form.Label>
+                    <Form.Control
+                      placeholder="Search SKU or name..."
+                      value={restockSearch}
+                      onChange={(e) => setRestockSearch(e.target.value)}
+                    />
+                    <div className="restock-search-results mt-2">
+                      {restockSearchResults.length === 0 ? (
+                        <div style={{ padding: 8 }} className="text-muted small">No results on cached pages. Try 'Load more' or change page.</div>
+                      ) : restockSearchResults.map((inv) => (
+                        <div
+                          key={inv.productId ?? inv.id}
+                          className="restock-search-item"
+                          onClick={() => pickRestockProduct(index, inv.productId ?? inv.inventoryId ?? inv.id)}
+                          title={`Pick ${inv.productId ?? inv.inventoryId ?? inv.id}`}
+                        >
+                          <strong>{inv.productId ?? inv.inventoryId ?? inv.id}</strong> {inv.productName || inv.name ? `— ${inv.productName || inv.name}` : ""}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="d-flex gap-2 mt-2">
+                      <Button size="sm" onClick={() => { if (restockProductPage > 1) { const prev = restockProductPage - 1; setRestockProductPage(prev); fetchRestockProducts(prev, false); } }}>Prev page</Button>
+                      <Button size="sm" onClick={() => { if (hasMoreRestockProducts) { loadMoreRestockProducts(); } else { showToastMessage("No more pages to load", "info"); } }}>Load more</Button>
+                      <div className="ms-auto text-muted small align-self-center">Cached pages: {(allRestockProducts || []).length === 0 ? 0 : Math.ceil((allRestockProducts || []).length / pageSize)}</div>
+                    </div>
+                    <Form.Text className="text-muted">Click an item to populate product field below.</Form.Text>
+                  </Col>
+
+                  <Col md={3}>
+                    <Form.Label>Quantity</Form.Label>
+                    <Form.Control type="number" value={entry.restockQuantity} onChange={(e) => updateRestockEntry(index, "restockQuantity", e.target.value)} />
+                  </Col>
+
+                  <Col md={3}>
+                    <Form.Label>Purchase Price</Form.Label>
+                    <Form.Control type="number" value={entry.purchasePrice} onChange={(e) => updateRestockEntry(index, "purchasePrice", e.target.value)} />
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label>Selected Product ID</Form.Label>
+                      <Form.Control type="text" value={entry.productId} onChange={(e) => updateRestockEntry(index, "productId", e.target.value)} />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <div className="d-flex justify-content-end mt-2">
+                  <Button variant="outline-danger" size="sm" onClick={() => removeRestockEntry(index)}>Remove</Button>
+                </div>
+              </div>
+            ))}
+
+            <div className="d-flex justify-content-end">
+              <Button variant="secondary" onClick={addRestockEntry}>+ Add Another Product</Button>
+            </div>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setShowRestockModal(false)}>Close</Button>
+          <Button variant="primary" onClick={handleAddRestock} disabled={isLoading}>{isLoading ? "Saving…" : "Save Restock"}</Button>
         </Modal.Footer>
       </Modal>
     </div>
