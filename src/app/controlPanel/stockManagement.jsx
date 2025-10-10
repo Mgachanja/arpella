@@ -62,7 +62,7 @@ const StockManagement = () => {
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [lastProductPage, setLastProductPage] = useState(1);
 
-  // INVOICES pagination (some APIs may not support paged; we support both)
+  // INVOICES pagination
   const [currentInvoicePage, setCurrentInvoicePage] = useState(1);
   const [invoiceJumpPage, setInvoiceJumpPage] = useState("");
   const [hasMoreInvoices, setHasMoreInvoices] = useState(true);
@@ -130,6 +130,9 @@ const StockManagement = () => {
     invoiceNumber: "",
   });
 
+  // Validation errors for Add Inventory+Product
+  const [formErrors, setFormErrors] = useState({});
+
   // Image upload
   const [imageData, setImageData] = useState({ isPrimary: false, image: null });
   const [uploadProductId, setUploadProductId] = useState(null);
@@ -188,7 +191,6 @@ const StockManagement = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // categories, suppliers, subcategories, invoices list (not paged)
       const [cats, sups, subcats] = await Promise.all([
         API.categories.list().catch(() => []),
         API.suppliers.list().catch(() => []),
@@ -197,7 +199,7 @@ const StockManagement = () => {
       setCategories(cats || []);
       setSuppliers(sups || []);
       setSubCategories(subcats || []);
-      // invoices (we will keep invoices as full list for selects; invoice table is paged later)
+      // invoices (keep full list for selects; will page table separately)
       const invs = await (API.invoices.list ? API.invoices.list().catch(() => []) : []);
       setInvoices(invs || []);
     } catch (error) {
@@ -230,7 +232,6 @@ const StockManagement = () => {
 
   useEffect(() => {
     fetchStocks(currentInventoryPage);
-    // reset restock cache when inventory page changes (restock uses separate cache mechanism)
   }, [currentInventoryPage]);
 
   const handleInventoryPageChange = (page) => {
@@ -301,7 +302,7 @@ const StockManagement = () => {
   };
 
   useEffect(() => {
-    // initial invoices page load (when invoice view is opened we call fetchInvoicesPaged)
+    // only call when invoice view used; controlled in nav
   }, [currentInvoicePage]);
 
   const handleInvoicePageChange = (page) => {
@@ -458,6 +459,7 @@ const StockManagement = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
     setStockExcelFile(null);
     setProductsExcelFile(null);
+    setFormErrors({});
   };
 
   // ----------- Handlers for create/update actions using services -----------
@@ -668,7 +670,6 @@ const StockManagement = () => {
       setIsLoading(true);
       const formData = new FormData();
       formData.append("file", productsExcelFile);
-      // original code used inventories.uploadExcel - keep that behavior
       await API.inventories.uploadExcel(formData);
       showToastMessage("Products Excel uploaded successfully", "success");
       setShowProductsExcelModal(false);
@@ -760,16 +761,99 @@ const StockManagement = () => {
     setShowEditStockModal(true);
   };
 
-  // ----------------- IMPROVED ADD INVENTORY & PRODUCT FLOW -----------------
-  // This version attempts to create inventory first (if SKU provided),
-  // and on product creation failure attempts to roll back the created inventory.
+  // ----------------- VALIDATION FOR ADD INVENTORY & PRODUCT -----------------
+  const validateInventoryProductForm = () => {
+    const f = inventoryProductForm;
+    const errors = {};
+
+    // inventoryId required (non-empty)
+    if (!f.inventoryId || String(f.inventoryId).trim() === "") errors.inventoryId = "Inventory Product ID is required";
+
+    // initialQuantity - must be integer >= 0
+    if (f.initialQuantity === "" || f.initialQuantity === null || isNaN(Number(f.initialQuantity))) {
+      errors.initialQuantity = "Initial quantity is required and must be a number";
+    } else if (Number(f.initialQuantity) < 0) {
+      errors.initialQuantity = "Initial quantity cannot be negative";
+    }
+
+    // initialPrice - number >= 0
+    if (f.initialPrice === "" || f.initialPrice === null || isNaN(Number(f.initialPrice))) {
+      errors.initialPrice = "Initial purchase price is required and must be a number";
+    } else if (Number(f.initialPrice) < 0) {
+      errors.initialPrice = "Initial purchase price cannot be negative";
+    }
+
+    // threshold
+    if (f.threshold === "" || f.threshold === null || isNaN(Number(f.threshold))) {
+      errors.threshold = "Threshold is required and must be a number";
+    } else if (Number(f.threshold) < 0) {
+      errors.threshold = "Threshold cannot be negative";
+    }
+
+    // supplierId
+    if (!f.supplierId || String(f.supplierId).trim() === "") errors.supplierId = "Supplier is required";
+
+    // invoiceNumber
+    if (!f.invoiceNumber || String(f.invoiceNumber).trim() === "") errors.invoiceNumber = "Invoice number is required";
+
+    // name
+    if (!f.name || String(f.name).trim() === "") errors.name = "Product name is required";
+
+    // price
+    if (f.price === "" || f.price === null || isNaN(Number(f.price))) {
+      errors.price = "Price is required and must be a number";
+    } else if (Number(f.price) < 0) {
+      errors.price = "Price cannot be negative";
+    }
+
+    // priceAfterDiscount
+    if (f.priceAfterDiscount === "" || f.priceAfterDiscount === null || isNaN(Number(f.priceAfterDiscount))) {
+      errors.priceAfterDiscount = "Price after discount is required and must be a number";
+    } else if (Number(f.priceAfterDiscount) < 0) {
+      errors.priceAfterDiscount = "Price after discount cannot be negative";
+    }
+
+    // barcodes
+    if (!f.barcodes || String(f.barcodes).trim() === "") errors.barcodes = "Barcode is required";
+
+    // discountQuantity
+    if (!f.discountQuantity || String(f.discountQuantity).trim() === "") errors.discountQuantity = "Discount quantity is required";
+
+    // categoryId
+    if (f.categoryId === null || f.categoryId === "") errors.categoryId = "Category is required";
+
+    // subCategoryId
+    if (f.subCategoryId === null || f.subCategoryId === "") errors.subCategoryId = "Subcategory is required";
+
+    // purchaseCap (must be >=1)
+    if (f.purchaseCap === "" || f.purchaseCap === null || isNaN(Number(f.purchaseCap))) {
+      errors.purchaseCap = "Purchase cap is required and must be a number";
+    } else if (Number(f.purchaseCap) < 1) {
+      errors.purchaseCap = "Purchase cap must be at least 1";
+    }
+
+    return errors;
+  };
+
+  // ----------------- IMPROVED ADD INVENTORY & PRODUCT FLOW (uses validation + rollback) -----------------
   const handleAddInventoryAndProduct = async () => {
     setIsSubmitting(true);
+    setFormErrors({});
+
+    // validate
+    const errors = validateInventoryProductForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      showToastMessage("Please fix validation errors before submitting", "danger");
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsLoading(true);
     let inventoryCreated = false;
-    let inventoryIdentifier = null; // productId or id depending on your API
+    let inventoryIdentifier = null;
     try {
-      // Validate required fields
+      // Validate required fields (redundant but safe)
       if (!inventoryProductForm.supplierId) {
         showToastMessage("Supplier is required.", "danger");
         return;
@@ -794,15 +878,12 @@ const StockManagement = () => {
           supplierId: inventoryProductForm.supplierId,
           invoiceNumber: inventoryProductForm.invoiceNumber,
         };
-        // create inventory record
         const invResp = await API.inventories.create(invPayload);
         inventoryCreated = true;
-        // store identifier for potential rollback - API may return id or productId
         inventoryIdentifier = invResp?.id || invResp?.productId || targetInventoryId;
         showToastMessage("Inventory created successfully", "success");
       }
 
-      // Build product payload
       const prodPayload = {
         SupplierId: inventoryProductForm.supplierId,
         InvoiceNumber: inventoryProductForm.invoiceNumber,
@@ -829,19 +910,14 @@ const StockManagement = () => {
       if (inventoryCreated) fetchStocks(lastInventoryPage || currentInventoryPage, true);
     } catch (error) {
       console.error("Error in create flow:", error);
-      // attempt rollback if inventory was created but product failed
       const backendMsg = error?.response?.data?.message || error?.message || JSON.stringify(error);
       if (inventoryCreated && inventoryIdentifier) {
         showToastMessage(`Product creation failed after inventory was created: ${backendMsg}. Attempting to rollback created inventory...`, "warning");
         try {
-          // Try to remove inventory using identifier. Adjust this if your API requires different params.
-          // If your API's remove is by id, and invResp.id was used above, this will work.
-          // If your API requires a productId, this may still work if the service handles it.
           if (typeof API.inventories.remove === "function") {
             await API.inventories.remove(inventoryIdentifier);
             showToastMessage("Rolled back created inventory successfully", "success");
           } else {
-            // No remove available — instruct user
             showToastMessage("Product creation failed and automatic rollback is unavailable (no inventories.remove). Please remove the created inventory manually.", "danger");
           }
         } catch (rmErr) {
@@ -874,9 +950,6 @@ const StockManagement = () => {
       .filter((sc) => Number(sc.categoryId) === Number(categoryId))
       .map((sc) => <option key={sc.id} value={sc.id}>{sc.subcategoryName}</option>);
   };
-
-  // ----------------- RESTOCK SEARCH (client-side on cached pages) -----------------
-  // handled above (restockSearchResults from allRestockProducts)
 
   // ----------------- JSX -----------------
   return (
@@ -1192,7 +1265,7 @@ const StockManagement = () => {
 
       {/* Merged: Add Inventory & Product Modal */}
       <Modal show={showAddInventoryProductModal} onHide={() => !isLoading && setShowAddInventoryProductModal(false)} size="lg" dialogClassName="small-offset-modal modal-dialog-centered">
-        <Form onSubmit={(e) => { e.preventDefault(); handleAddInventoryAndProduct(); }}>
+        <Form onSubmit={(e) => { e.preventDefault(); handleAddInventoryAndProduct(); }} noValidate>
           <Modal.Header closeButton><Modal.Title>Add Inventory & Product</Modal.Title></Modal.Header>
           <Modal.Body>
             <Row>
@@ -1200,19 +1273,54 @@ const StockManagement = () => {
                 <h6 className="mb-2">Inventory </h6>
                 <Form.Group className="mb-3">
                   <Form.Label>Inventory Product ID (SKU)</Form.Label>
-                  <Form.Control type="text" value={inventoryProductForm.inventoryId} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, inventoryId: e.target.value })} />
+                  <Form.Control
+                    type="text"
+                    value={inventoryProductForm.inventoryId}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, inventoryId: e.target.value }); setFormErrors(prev => ({ ...prev, inventoryId: undefined })); }}
+                    isInvalid={!!formErrors.inventoryId}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.inventoryId}</Form.Control.Feedback>
                 </Form.Group>
+
                 <Form.Group className="mb-3">
                   <Form.Label>Initial Quantity</Form.Label>
-                  <Form.Control type="number" value={inventoryProductForm.initialQuantity} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, initialQuantity: e.target.value })} min="0" />
+                  <Form.Control
+                    type="number"
+                    value={inventoryProductForm.initialQuantity}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, initialQuantity: e.target.value }); setFormErrors(prev => ({ ...prev, initialQuantity: undefined })); }}
+                    min="0"
+                    isInvalid={!!formErrors.initialQuantity}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.initialQuantity}</Form.Control.Feedback>
                 </Form.Group>
+
                 <Form.Group className="mb-3">
                   <Form.Label>Initial Purchase Price</Form.Label>
-                  <Form.Control type="number" value={inventoryProductForm.initialPrice} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, initialPrice: e.target.value })} min="0" step="0.01" />
+                  <Form.Control
+                    type="number"
+                    value={inventoryProductForm.initialPrice}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, initialPrice: e.target.value }); setFormErrors(prev => ({ ...prev, initialPrice: undefined })); }}
+                    min="0"
+                    step="0.01"
+                    isInvalid={!!formErrors.initialPrice}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.initialPrice}</Form.Control.Feedback>
                 </Form.Group>
+
                 <Form.Group className="mb-3">
                   <Form.Label>Threshold</Form.Label>
-                  <Form.Control type="number" value={inventoryProductForm.threshold} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, threshold: e.target.value })} min="0" />
+                  <Form.Control
+                    type="number"
+                    value={inventoryProductForm.threshold}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, threshold: e.target.value }); setFormErrors(prev => ({ ...prev, threshold: undefined })); }}
+                    min="0"
+                    isInvalid={!!formErrors.threshold}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.threshold}</Form.Control.Feedback>
                 </Form.Group>
 
                 {/* Supplier & Invoice selects (required) */}
@@ -1222,7 +1330,8 @@ const StockManagement = () => {
                       <Form.Label>Supplier <span className="text-danger">*</span></Form.Label>
                       <Form.Select
                         value={inventoryProductForm.supplierId ?? ""}
-                        onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, supplierId: e.target.value, invoiceNumber: "" })}
+                        onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, supplierId: e.target.value, invoiceNumber: "" }); setFormErrors(prev => ({ ...prev, supplierId: undefined })); }}
+                        isInvalid={!!formErrors.supplierId}
                         required
                       >
                         <option value="">Select a supplier</option>
@@ -1230,6 +1339,7 @@ const StockManagement = () => {
                           <option key={s.id} value={s.id}>{s.supplierName}</option>
                         ))}
                       </Form.Select>
+                      <Form.Control.Feedback type="invalid">{formErrors.supplierId}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
 
@@ -1238,7 +1348,8 @@ const StockManagement = () => {
                       <Form.Label>Invoice <span className="text-danger">*</span></Form.Label>
                       <Form.Select
                         value={inventoryProductForm.invoiceNumber ?? ""}
-                        onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, invoiceNumber: e.target.value })}
+                        onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, invoiceNumber: e.target.value }); setFormErrors(prev => ({ ...prev, invoiceNumber: undefined })); }}
+                        isInvalid={!!formErrors.invoiceNumber}
                         required
                         disabled={!inventoryProductForm.supplierId}
                       >
@@ -1250,6 +1361,7 @@ const StockManagement = () => {
                           ))
                         }
                       </Form.Select>
+                      <Form.Control.Feedback type="invalid">{formErrors.invoiceNumber}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>
                 </Row>
@@ -1259,27 +1371,66 @@ const StockManagement = () => {
                 <h6 className="mb-2">Product Details</h6>
                 <Form.Group className="mb-3">
                   <Form.Label>Product Name *</Form.Label>
-                  <Form.Control type="text" value={inventoryProductForm.name} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, name: e.target.value })} required />
+                  <Form.Control
+                    type="text"
+                    value={inventoryProductForm.name}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, name: e.target.value }); setFormErrors(prev => ({ ...prev, name: undefined })); }}
+                    isInvalid={!!formErrors.name}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
                   <Form.Label>Price *</Form.Label>
-                  <Form.Control type="number" value={inventoryProductForm.price} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, price: e.target.value })} required min="0" step="0.01" />
+                  <Form.Control
+                    type="number"
+                    value={inventoryProductForm.price}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, price: e.target.value }); setFormErrors(prev => ({ ...prev, price: undefined })); }}
+                    required
+                    min="0"
+                    step="0.01"
+                    isInvalid={!!formErrors.price}
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.price}</Form.Control.Feedback>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
                   <Form.Label>Price After Discount</Form.Label>
-                  <Form.Control type="number" value={inventoryProductForm.priceAfterDiscount} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, priceAfterDiscount: e.target.value })} min="0" step="0.01" />
+                  <Form.Control
+                    type="number"
+                    value={inventoryProductForm.priceAfterDiscount}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, priceAfterDiscount: e.target.value }); setFormErrors(prev => ({ ...prev, priceAfterDiscount: undefined })); }}
+                    min="0"
+                    step="0.01"
+                    isInvalid={!!formErrors.priceAfterDiscount}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.priceAfterDiscount}</Form.Control.Feedback>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
                   <Form.Label>Barcode</Form.Label>
-                  <Form.Control type="text" value={inventoryProductForm.barcodes} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, barcodes: e.target.value })} />
+                  <Form.Control
+                    type="text"
+                    value={inventoryProductForm.barcodes}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, barcodes: e.target.value }); setFormErrors(prev => ({ ...prev, barcodes: undefined })); }}
+                    isInvalid={!!formErrors.barcodes}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.barcodes}</Form.Control.Feedback>
                 </Form.Group>
 
                 <Form.Group className="mb-3">
                   <Form.Label>Discount Quantity</Form.Label>
-                  <Form.Control type="text" value={inventoryProductForm.discountQuantity} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, discountQuantity: e.target.value })} />
+                  <Form.Control
+                    type="text"
+                    value={inventoryProductForm.discountQuantity}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, discountQuantity: e.target.value }); setFormErrors(prev => ({ ...prev, discountQuantity: undefined })); }}
+                    isInvalid={!!formErrors.discountQuantity}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.discountQuantity}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -1289,12 +1440,13 @@ const StockManagement = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Category</Form.Label>
                   <div className="d-flex">
-                    <Form.Select value={inventoryProductForm.categoryId ?? ""} onChange={(e) => { const val = e.target.value; setInventoryProductForm({ ...inventoryProductForm, categoryId: val === "" ? null : Number(val), subCategoryId: null }); }}>
+                    <Form.Select value={inventoryProductForm.categoryId ?? ""} onChange={(e) => { const val = e.target.value; setInventoryProductForm({ ...inventoryProductForm, categoryId: val === "" ? null : Number(val), subCategoryId: null }); setFormErrors(prev => ({ ...prev, categoryId: undefined })); }} isInvalid={!!formErrors.categoryId} required>
                       <option value="">Select a category</option>
                       {categories.map((cat) => (<option key={cat.id} value={cat.id}>{cat.id + " - " + cat.categoryName}</option>))}
                     </Form.Select>
                     <Button type="button" variant="outline-secondary" className="ms-2" onClick={() => setShowCategoryModal(true)} disabled={isLoading}>+</Button>
                   </div>
+                  <Form.Control.Feedback type="invalid">{formErrors.categoryId}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
 
@@ -1302,12 +1454,13 @@ const StockManagement = () => {
                 <Form.Group className="mb-3">
                   <Form.Label>Subcategory</Form.Label>
                   <div className="d-flex">
-                    <Form.Select value={inventoryProductForm.subCategoryId ?? ""} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, subCategoryId: e.target.value === "" ? null : Number(e.target.value) })} disabled={inventoryProductForm.categoryId === null} className="me-2">
+                    <Form.Select value={inventoryProductForm.subCategoryId ?? ""} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, subCategoryId: e.target.value === "" ? null : Number(e.target.value) })} disabled={inventoryProductForm.categoryId === null} isInvalid={!!formErrors.subCategoryId} required className="me-2">
                       <option value="">Select a subcategory</option>
                       {renderSubCategoryOptionsFor(inventoryProductForm.categoryId)}
                     </Form.Select>
                     <Button type="button" variant="outline-secondary" onClick={() => setShowSubCategoryModal(true)} disabled={isLoading || inventoryProductForm.categoryId === null}>+</Button>
                   </div>
+                  <Form.Control.Feedback type="invalid">{formErrors.subCategoryId}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
             </Row>
@@ -1316,7 +1469,15 @@ const StockManagement = () => {
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Purchase Cap</Form.Label>
-                  <Form.Control type="number" value={inventoryProductForm.purchaseCap} onChange={(e) => setInventoryProductForm({ ...inventoryProductForm, purchaseCap: e.target.value })} min="1" />
+                  <Form.Control
+                    type="number"
+                    value={inventoryProductForm.purchaseCap}
+                    onChange={(e) => { setInventoryProductForm({ ...inventoryProductForm, purchaseCap: e.target.value }); setFormErrors(prev => ({ ...prev, purchaseCap: undefined })); }}
+                    min="1"
+                    isInvalid={!!formErrors.purchaseCap}
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">{formErrors.purchaseCap}</Form.Control.Feedback>
                 </Form.Group>
               </Col>
 
@@ -1668,11 +1829,9 @@ const StockManagement = () => {
             if (!editStockData) return;
             try {
               setIsLoading(true);
-              // call inventories.update - adapt if your API signature differs
               await API.inventories.update(editStockData.productId, editStockData);
               showToastMessage("Stock updated successfully", "success");
               setShowEditStockModal(false);
-              // restore to last inventory page (memory)
               fetchStocks(lastInventoryPage || currentInventoryPage, true);
               setCurrentInventoryPage(lastInventoryPage || currentInventoryPage);
             } catch (err) {
