@@ -177,6 +177,7 @@ export default function Cart() {
       // Build payload with priceType per item
       const payload = {
         userId: user.phone,
+        orderSource:"Ecommerce",
         orderPaymentType: 'Mpesa',
         phoneNumber: phoneInput.trim(),
         buyerPin: kraPinInput.trim() || 'N/A',
@@ -201,7 +202,12 @@ export default function Cart() {
       console.log('Order payload (mpesa):', payload);
 
       try {
-        await axios.post(`${baseUrl}/order`, payload);
+        await axios.post(`${baseUrl}/order`, payload ,
+           {
+            headers: {
+              'Content-Type': 'application/json',
+            },}
+              );
         successToast('Mpesa order successfully initiated.');
       } catch (err) {
         errorToast(err.response?.data || 'Mpesa payment failed.');
