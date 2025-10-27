@@ -18,6 +18,7 @@ import ProtectedRoute from "./app/ProtectedRoute"
 import Terms from "./app/Terms"
 import Privacy from "./app/Privacy"
 import DeliveryTermsPage from "./app/deliveryTerms";
+import Download from "./app/download"
 function App() {
   return (
     <Provider store={store}>
@@ -27,6 +28,7 @@ function App() {
             <div>
               <ToastContainer  autoClose={3000} />
               <Routes>
+                <Route path="/download" element={<Download/>}/>
                 <Route path="/" element={<Registration />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/terms-and-conditions" element={<Terms />} />

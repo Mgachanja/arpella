@@ -22,7 +22,6 @@ import { baseUrl } from "../../constants";
 import * as API from "../../services/ProductServices";
 
 const StockManagement = () => {
-  // Modal visibility states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAddInventoryProductModal, setShowAddInventoryProductModal] = useState(false);
   const [showImageUploadModal, setShowImageUploadModal] = useState(false);
@@ -1434,7 +1433,6 @@ const StockManagement = () => {
                 </Form.Group>
               </Col>
             </Row>
-
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">

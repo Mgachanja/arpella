@@ -1,8 +1,12 @@
 import axios from "axios";
 import { baseUrl } from "../constants";
+
 const api = axios.create({
   baseURL: baseUrl,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
 });
 
 export const toArray = (payload) => {
@@ -12,7 +16,6 @@ export const toArray = (payload) => {
   if (payload && Array.isArray(payload.data)) return payload.data;
   return [payload];
 };
-
 
 export const categories = {
   list: async () => toArray((await api.get("/categories")).data),
@@ -70,3 +73,5 @@ export const goodsInfo = {
   list: async () => toArray((await api.get("/taxData")).data),
   create: async (payload) => toArray((await api.post("/goodsinfo", payload)).data),
 };
+
+export default api;
