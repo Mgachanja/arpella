@@ -20,22 +20,24 @@ import {
   ListItem,
   ListItemText,
   Divider,
+  TextField,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
+import { Search as SearchIcon } from '@mui/icons-material';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
-import { fetchStaffMembers } from '../../redux/slices/staffSlice'; // adjust path as needed
+import { fetchStaffMembers } from '../../redux/slices/staffSlice';
 import { baseUrl } from '../../constants';
 
 const OrderManagement = () => {
-  // paginated orders
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [isLastPage, setIsLastPage] = useState(false);
 
   const [pageNumber, setPageNumber] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
 
-  // users & staff
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
@@ -45,6 +47,9 @@ const OrderManagement = () => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
+  const [searchOrderId, setSearchOrderId] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+
   const dispatch = useDispatch();
   const staffList = useSelector((state) => state.staff.staffList || []);
   const deliveryGuys = staffList.filter(
@@ -53,13 +58,11 @@ const OrderManagement = () => {
 
   const DELIVERY_TRACKING_BASE = `${baseUrl}/deliverytracking`;
 
-  // --- helper to compute full order id (for path param) ---
   const computeFullOrderId = (order) => {
     if (!order) return '';
     return order._id || order.id || order.orderId || order.orderid || '';
   };
 
-  // --- fetch paged orders (no total available) ---
   useEffect(() => {
     let cancelled = false;
 
@@ -70,7 +73,6 @@ const OrderManagement = () => {
         const res = await axios.get(url);
         const data = res.data;
 
-        // Normalize items
         let items = [];
         if (!data) items = [];
         else if (Array.isArray(data)) items = data;
@@ -82,19 +84,17 @@ const OrderManagement = () => {
 
         if (cancelled) return;
 
-        // If we requested a page > 1 but got zero items, step back one page
         if (items.length === 0 && pageNumber > 1) {
           setPageNumber((p) => Math.max(1, p - 1));
           return;
         }
 
         setOrders(items);
-        // last page if returned items are fewer than pageSize
         setIsLastPage(items.length < pageSize);
       } catch (err) {
         console.error('Failed to fetch orders (paged):', err);
         setOrders([]);
-        setIsLastPage(true); // be conservative
+        setIsLastPage(true);
       } finally {
         if (!cancelled) setOrdersLoading(false);
       }
@@ -106,7 +106,6 @@ const OrderManagement = () => {
     };
   }, [pageNumber, pageSize]);
 
-  // Fetch users (customers)
   useEffect(() => {
     let cancelled = false;
     const fetchUsers = async () => {
@@ -127,7 +126,6 @@ const OrderManagement = () => {
     };
   }, []);
 
-  // Load staff (redux)
   useEffect(() => {
     dispatch(fetchStaffMembers());
   }, [dispatch]);
@@ -139,7 +137,7 @@ const OrderManagement = () => {
   );
 
   const getCustomerFirstName = (userIdentifier) => {
-    if (!userIdentifier) return '';
+    if (!userIdentifier) return 'Walk-in Customer';
     const u =
       users.find(
         (x) =>
@@ -148,10 +146,20 @@ const OrderManagement = () => {
           x._id === userIdentifier ||
           x.username === userIdentifier
       ) || null;
-    return u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() || (u.firstName || u.phoneNumber || u.username) : userIdentifier;
+    
+    if (!u) return 'Walk-in Customer';
+    
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+    return fullName || u.firstName || u.phoneNumber || u.username || 'Walk-in Customer';
   };
 
   const getStaffFullName = (s) => (s ? `${s.firstName || ''} ${s.lastName || ''}`.trim() : '');
+
+  const isDeliveryAssigned = (order) => {
+    if (!order) return false;
+    const status = (order.status || '').toLowerCase();
+    return status !== 'pending' && status !== 'not assigned' && status !== '';
+  };
 
   const handleOpenModal = (order) => {
     setSelectedOrder(order);
@@ -187,19 +195,15 @@ const OrderManagement = () => {
     }, 0);
   };
 
-  // Assign delivery and POST required payload to external tracking endpoint,
-  // then update status to "processing".
   const handleAssignDelivery = async () => {
     if (!selectedOrder) return;
 
-    // find staff object if available
     const staff = deliveryGuys.find((d) =>
       [d.phoneNumber, d.id, d._id, d.username].includes(deliveryGuy)
     );
 
     const staffDisplayName = getStaffFullName(staff) || staff?.username || deliveryGuy;
 
-    // Find customer (to get phone number). Try users list first, then common order fields.
     const userKey = selectedOrder.userId || selectedOrder.user || selectedOrder.customerId || selectedOrder.customer;
     const customer =
       users.find(
@@ -220,7 +224,6 @@ const OrderManagement = () => {
       selectedOrder.user ||
       '';
 
-    // Full order id used in endpoint path
     const fullOrderId = computeFullOrderId(selectedOrder);
     if (!fullOrderId) {
       setToast({ open: true, message: `Cannot determine full order id.`, severity: 'error' });
@@ -229,15 +232,12 @@ const OrderManagement = () => {
 
     const payload = {
       orderId: fullOrderId,
-      // IMPORTANT: username must be customer's phone number
       username: customerPhone,
       deliveryAgent: staff?.username || staff?.phoneNumber || staffDisplayName || deliveryGuy,
     };
 
-    // save previous state for revert
     const prevOrders = orders;
 
-    // Optimistic UI update (attach assignedDelivery immediately)
     setOrders((prev) =>
       prev.map((o) =>
         computeFullOrderId(o) === fullOrderId
@@ -251,11 +251,9 @@ const OrderManagement = () => {
 
     setToast({ open: true, message: `Order ${fullOrderId} assigned to ${payload.deliveryAgent}`, severity: 'success' });
 
-    // close modal quickly
     setOpenModal(false);
 
     try {
-      // 1) Persist assignment to tracking endpoint (use full order id in path)
       const trackingUrl = `${DELIVERY_TRACKING_BASE}/`;
       await axios.post(trackingUrl, payload);
 
@@ -267,7 +265,6 @@ const OrderManagement = () => {
     } catch (err) {
       console.error('Failed in assignment or status update:', err);
 
-      // revert optimistic change
       setOrders(prevOrders);
 
       setToast({
@@ -281,15 +278,50 @@ const OrderManagement = () => {
     }
   };
 
+  const handleSearchOrder = async () => {
+    if (!searchOrderId.trim()) {
+      setToast({ open: true, message: 'Please enter an order ID', severity: 'warning' });
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const url = `${baseUrl}/order/${searchOrderId.trim()}`;
+      const { data } = await axios.get(url);
+      
+      if (data) {
+        setSelectedOrder(data);
+        setDeliveryGuy(
+          data.assignedDelivery?.username ||
+            data.assignedDelivery?.phoneNumber ||
+            data.assignedDelivery?.id ||
+            data.assignedDelivery?._id ||
+            ''
+        );
+        setOpenModal(true);
+        setSearchOrderId('');
+      } else {
+        setToast({ open: true, message: 'Order not found', severity: 'error' });
+      }
+    } catch (err) {
+      console.error('Failed to fetch order:', err);
+      setToast({
+        open: true,
+        message: `Order not found: ${err?.response?.data?.message || err?.message || 'server error'}`,
+        severity: 'error',
+      });
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
   const handleCloseToast = (e, reason) => {
     if (reason === 'clickaway') return;
     setToast({ ...toast, open: false });
   };
 
-  // Pagination controls
   const handlePrevPage = () => setPageNumber((p) => Math.max(1, p - 1));
   const handleNextPage = () => {
-    // only allow next if not last page
     if (!isLastPage) setPageNumber((p) => p + 1);
   };
   const handlePageSizeChange = (e) => {
@@ -298,17 +330,49 @@ const OrderManagement = () => {
     setIsLastPage(false);
   };
 
+  const getRowStyle = (status) => {
+    const normalizedStatus = (status || '').toLowerCase();
+    if (normalizedStatus === 'pending') {
+      return {
+        backgroundColor: '#fff3e0',
+        borderLeft: '4px solid #f44336',
+      };
+    }
+    return {};
+  };
+
   return (
     <div>
       <Typography variant="h4" sx={{ mb: 2, fontWeight: 'bold' }}>
         Order Management
       </Typography>
 
+      {/* Search Bar */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          value={searchOrderId}
+          onChange={(e) => setSearchOrderId(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSearchOrder()}
+          placeholder="Search by Order ID"
+          size="small"
+          sx={{ width: { xs: '100%', sm: 400 } }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton onClick={handleSearchOrder} disabled={searchLoading} edge="end">
+                  {searchLoading ? <CircularProgress size={20} /> : <SearchIcon />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
       {/* Filter + Pagination Controls */}
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="subtitle1">Filter by Status:</Typography>
         <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} size="small">
-          {['All', 'Pending', 'Shipped', 'Delivered'].map((s) => (
+          {['All', 'Pending', 'Processing', 'Shipped', 'Delivered'].map((s) => (
             <MenuItem key={s} value={s}>
               {s}
             </MenuItem>
@@ -318,7 +382,7 @@ const OrderManagement = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
           <Typography variant="body2">Page Size:</Typography>
           <Select value={pageSize} onChange={handlePageSizeChange} size="small">
-            {[5, 10, 20, 50].map((s) => (
+            {[10, 20, 50, 100].map((s) => (
               <MenuItem key={s} value={s}>
                 {s}
               </MenuItem>
@@ -354,8 +418,9 @@ const OrderManagement = () => {
           <TableBody>
             {filteredOrders.map((order) => {
               const key = computeFullOrderId(order) || JSON.stringify(order).slice(0, 20);
+              const rowStyle = getRowStyle(order.status);
               return (
-                <TableRow key={key} hover>
+                <TableRow key={key} hover sx={rowStyle}>
                   <TableCell>{computeFullOrderId(order) || '-'}</TableCell>
                   <TableCell>{getCustomerFirstName(order.userId || order.user)}</TableCell>
                   <TableCell>{computeOrderTotal(order)}</TableCell>
@@ -399,6 +464,10 @@ const OrderManagement = () => {
         >
           <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
             Order #{computeFullOrderId(selectedOrder)} — {getCustomerFirstName(selectedOrder?.userId || selectedOrder?.user)}
+          </Typography>
+
+          <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>
+            Status: {selectedOrder?.status || '—'}
           </Typography>
 
           <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -451,7 +520,7 @@ const OrderManagement = () => {
             onChange={(e) => setDeliveryGuy(e.target.value)}
             fullWidth
             size="small"
-            disabled={!deliveryGuys.length}
+            disabled={!deliveryGuys.length || isDeliveryAssigned(selectedOrder)}
             sx={{ mb: 2 }}
           >
             {deliveryGuys.length === 0 ? (
@@ -465,8 +534,18 @@ const OrderManagement = () => {
             )}
           </Select>
 
+          {isDeliveryAssigned(selectedOrder) && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontStyle: 'italic' }}>
+              This order has already been assigned for delivery.
+            </Typography>
+          )}
+
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Button variant="contained" onClick={handleAssignDelivery} disabled={!deliveryGuy}>
+            <Button 
+              variant="contained" 
+              onClick={handleAssignDelivery} 
+              disabled={!deliveryGuy || isDeliveryAssigned(selectedOrder)}
+            >
               Assign Delivery
             </Button>
             <Button variant="text" onClick={handleCloseModal}>

@@ -33,8 +33,8 @@ const features = [
 
 // Update these to your actual EAS build / TestFlight URLs
 const ANDROID_DOWNLOAD_URL = 'https://expo.dev/artifacts/eas/MqmbcN8T37zcnC63T1AaH.apk';
-const IOS_DOWNLOAD_URL = 'YOUR_IOS_BUILD_URL_HERE';
-const TESTFLIGHT_URL = 'YOUR_TESTFLIGHT_URL_HERE';
+const IOS_DOWNLOAD_URL = 'pending';
+const TESTFLIGHT_URL = 'pending';
 
 export default function DownloadPage() {
   const [showNavOffcanvas, setShowNavOffcanvas] = useState(false);
