@@ -4,49 +4,15 @@ import axios from 'axios';
 import { baseUrl } from '../../../constants';
 import { loginUserApi, registerUserApi } from '../../../services/Auth';
 
-export const loginUser = createAsyncThunk(
-  'auth/loginUser',
-  async (credentials, { rejectWithValue }) => {
-    try {
-      const response = await loginUserApi(credentials);
-      return response;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
+// Replaced by authApi.ts RTK Query mutations
 
-export const registerUser = createAsyncThunk(
-  'auth/registerUser',
-  async (userData, { rejectWithValue }) => {
-    try {
-      const response = await registerUserApi(userData);
-      return response;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
-  }
-);
-
-export const editUser = createAsyncThunk(
-  'auth/editUser',
-  async ({ phoneNumber, payload }, { rejectWithValue }) => {
-    try {
-      const response = await axios.put(
-        `${baseUrl}/user-details/${phoneNumber}`,
-        payload
-      );
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
-    }
-  }
-);
+import { authApi } from '../api/authApi';
 
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
     isAuthenticated: false,
+    token: null, // Add token property
     isLoading: false,
     user: null,
     error: null,
@@ -54,6 +20,7 @@ const authSlice = createSlice({
   reducers: {
     logout: (state) => {
       state.isAuthenticated = false;
+      state.token = null; // Clear token
       state.user = null;
       state.error = null;
       localStorage.removeItem('user');
@@ -71,76 +38,63 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loginUser.pending, (state) => {
+      // LOGIN
+      .addMatcher(authApi.endpoints.login.matchPending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(loginUser.fulfilled, (state, action) => {
+      .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.user = {
-          firstName: action.payload.firstName,
-          lastName: action.payload.lastName,
-          phone: action.payload.phoneNumber,
-          email: action.payload.email,
-          role: action.payload.role,
-          passwordHash: action.payload.passwordHash || '',
-        };
-        toast.success(`Welcome, ${state.user.firstName}!`);
+        // The backend payload structure: { token, user: { firstName, lastName, role, ... } }
+        state.token = action.payload.token;
+        state.user = action.payload.user;
+        toast.success(`Welcome, ${state.user?.firstName || 'User'}!`);
       })
-      .addCase(loginUser.rejected, (state, action) => {
+      .addMatcher(authApi.endpoints.login.matchRejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
-        toast.error(action.payload);
+        state.error = action.error?.message || 'Login failed';
+        toast.error(state.error);
       })
 
-      .addCase(registerUser.pending, (state) => {
+      // REGISTER
+      .addMatcher(authApi.endpoints.register.matchPending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(registerUser.fulfilled, (state, action) => {
+      .addMatcher(authApi.endpoints.register.matchFulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        state.user = {
-          firstName: action.payload.firstName,
-          lastName: action.payload.lastName,
-          phone: action.payload.phoneNumber,
-          email: action.payload.email,
-          role: action.payload.role,
-          passwordHash: action.payload.passwordHash || '',
-        };
+        state.user = action.payload; // Register payload may vary
         toast.success('Registration successful');
-        if (action.meta.arg.rememberMe) {
-          localStorage.setItem('user', btoa(JSON.stringify(state.user)));
-        }
+        // if (action.meta.arg.originalArgs.rememberMe) {
+        //   localStorage.setItem('user', btoa(JSON.stringify(state.user)));
+        // }
       })
-      .addCase(registerUser.rejected, (state, action) => {
+      .addMatcher(authApi.endpoints.register.matchRejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
-        toast.error(action.payload);
+        state.error = action.error?.message || 'Registration failed';
+        toast.error(state.error);
       })
 
-      .addCase(editUser.pending, (state) => {
+      // EDIT USER
+      .addMatcher(authApi.endpoints.editUser.matchPending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(editUser.fulfilled, (state, action) => {
+      .addMatcher(authApi.endpoints.editUser.matchFulfilled, (state, action) => {
         state.isLoading = false;
         state.user = {
-          email: action.payload.email,
-          passwordHash: action.payload.passwordHash,
-          phone: action.payload.phoneNumber,
-          firstName: action.payload.firstName,
-          lastName: action.payload.lastName,
-          role: state.user.role,
+          ...state.user,
+          ...action.payload,
         };
         toast.success('Profile updated successfully');
         localStorage.setItem('user', btoa(JSON.stringify(state.user)));
       })
-      .addCase(editUser.rejected, (state, action) => {
+      .addMatcher(authApi.endpoints.editUser.matchRejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
-        toast.error(action.payload);
+        state.error = action.error?.message || 'Update failed';
+        toast.error(state.error);
       });
   },
 });

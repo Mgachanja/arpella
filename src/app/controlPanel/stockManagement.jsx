@@ -18,8 +18,51 @@ import { Backdrop, CircularProgress } from "@mui/material";
 import { FaPencilAlt, FaTrash } from "react-icons/fa";
 import { baseUrl } from "../../constants";
 
-// <-- Use your service file here -->
-import * as API from "../../services/ProductServices";
+import { store } from "../../redux/store";
+import { productsApi } from "../../redux/api/productsApi";
+
+// Bridge the old API calls to RTK Query endpoints
+const API = {
+  categories: {
+    list: () => store.dispatch(productsApi.endpoints.getCategories.initiate()).unwrap(),
+    create: (payload) => store.dispatch(productsApi.endpoints.createCategory.initiate(payload)).unwrap(),
+  },
+  subcategories: {
+    list: () => store.dispatch(productsApi.endpoints.getSubcategories.initiate()).unwrap(),
+    create: (payload) => store.dispatch(productsApi.endpoints.createSubcategory.initiate(payload)).unwrap(),
+  },
+  suppliers: {
+    list: () => store.dispatch(productsApi.endpoints.getSuppliers.initiate()).unwrap(),
+    create: (payload) => store.dispatch(productsApi.endpoints.createSupplier.initiate(payload)).unwrap(),
+    update: (id, payload) => store.dispatch(productsApi.endpoints.updateSupplier.initiate({ id, payload })).unwrap(),
+    remove: (id) => store.dispatch(productsApi.endpoints.removeSupplier.initiate(id)).unwrap(),
+  },
+  invoices: {
+    list: () => store.dispatch(productsApi.endpoints.getInvoices.initiate()).unwrap(),
+    create: (payload) => store.dispatch(productsApi.endpoints.createInvoice.initiate(payload)).unwrap(),
+  },
+  inventories: {
+    create: (payload) => store.dispatch(productsApi.endpoints.createInventory.initiate(payload)).unwrap(),
+    update: (id, payload) => store.dispatch(productsApi.endpoints.updateInventory.initiate({ id, payload })).unwrap(),
+    paged: (page, pageSize) => store.dispatch(productsApi.endpoints.getPagedInventories.initiate({ page, pageSize })).unwrap(),
+    uploadExcel: (formData) => store.dispatch(productsApi.endpoints.uploadExcelInventories.initiate(formData)).unwrap(),
+  },
+  products: {
+    paged: (page, pageSize) => store.dispatch(productsApi.endpoints.getPagedProducts.initiate({ page, pageSize })).unwrap(),
+    list: () => store.dispatch(productsApi.endpoints.getProducts.initiate()).unwrap(),
+    get: (id) => store.dispatch(productsApi.endpoints.getProduct.initiate(id)).unwrap(),
+    create: (payload) => store.dispatch(productsApi.endpoints.createProduct.initiate(payload)).unwrap(),
+    update: (id, payload) => store.dispatch(productsApi.endpoints.updateProduct.initiate({ id, payload })).unwrap(),
+    uploadImage: (formData) => store.dispatch(productsApi.endpoints.uploadProductImage.initiate(formData)).unwrap(),
+  },
+  restockLog: {
+    create: (payload) => store.dispatch(productsApi.endpoints.createRestockLog.initiate(payload)).unwrap(),
+  },
+  goodsInfo: {
+    list: () => store.dispatch(productsApi.endpoints.getGoodsInfo.initiate()).unwrap(),
+    create: (payload) => store.dispatch(productsApi.endpoints.createGoodsInfo.initiate(payload)).unwrap(),
+  },
+};
 
 const StockManagement = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);

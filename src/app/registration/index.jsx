@@ -10,7 +10,7 @@ import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons';
 import { faUser as User } from '@fortawesome/free-regular-svg-icons';
 import { useNavigate } from 'react-router-dom';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
-import { registerUser } from '../../redux/slices/authSlice';
+import { useRegisterMutation } from '../../redux/api/authApi';
 import { VERSION } from '../../constants';
 
 // Import Modal, Button, Form, Tabs, and Tab from react-bootstrap for our modals
@@ -19,7 +19,9 @@ import { Modal, Button, Form, Tabs, Tab } from 'react-bootstrap';
 function Registration() {
   const { register, handleSubmit, formState: { errors } } = useForm();
   const dispatch = useDispatch();
-  const { isAuthenticated, isLoading } = useSelector((state) => state.auth);
+  const { isAuthenticated, isLoading: globalIsLoading } = useSelector((state) => state.auth);
+  const [registerUserApi, { isLoading: isRegistering }] = useRegisterMutation();
+  const isLoading = globalIsLoading || isRegistering;
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -66,7 +68,7 @@ function Registration() {
       phoneNumber: formData.phone,
       passwordHash: formData.password,
     };
-    dispatch(registerUser(credentials));
+    registerUserApi(credentials).unwrap().catch(() => {});
   };
 
   const onSubmit = (data) => {

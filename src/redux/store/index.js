@@ -5,7 +5,7 @@ import authReducer from "../slices/authSlice";
 import cartReducer from "../slices/cartSlice";
 import staffReducer from "../slices/staffSlice"
 import productsReducer from "../slices/productsSlice"
-import { thunk } from "redux-thunk";
+import { api } from "../api/rtkApi";
 
 // Persist config for auth
 const authPersistConfig = {
@@ -19,11 +19,12 @@ export const store = configureStore({
   reducer: {
     auth: persistedAuthReducer, // Persist auth state
     cart: cartReducer,
-    staff:staffReducer,
+    staff: staffReducer,
     products: productsReducer,
+    [api.reducerPath]: api.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({ serializableCheck: false }), // Prevent serializable state check errors
+    getDefaultMiddleware({ serializableCheck: false }).concat(api.middleware),
 });
 
 export const persistor = persistStore(store);

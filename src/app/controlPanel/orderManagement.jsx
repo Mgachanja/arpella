@@ -27,7 +27,7 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
-import { fetchStaffMembers } from '../../redux/slices/staffSlice';
+import { useGetStaffMembersQuery } from '../../redux/api/staffApi';
 import { baseUrl } from '../../constants';
 
 const OrderManagement = () => {
@@ -51,7 +51,7 @@ const OrderManagement = () => {
   const [searchLoading, setSearchLoading] = useState(false);
 
   const dispatch = useDispatch();
-  const staffList = useSelector((state) => state.staff.staffList || []);
+  const { data: staffList = [] } = useGetStaffMembersQuery();
   const deliveryGuys = staffList.filter(
     (staff) => (staff.role || '').toLowerCase() === 'delivery guy'
   );
@@ -126,9 +126,7 @@ const OrderManagement = () => {
     };
   }, []);
 
-  useEffect(() => {
-    dispatch(fetchStaffMembers());
-  }, [dispatch]);
+
 
   const loading = ordersLoading || usersLoading;
 

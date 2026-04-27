@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchStaffMembers } from "../../redux/slices/staffSlice";
-import { addStaff, deleteStaff } from "../../services/AddStaff.js";
+import { useGetStaffMembersQuery, useAddStaffMutation, useDeleteStaffMutation } from "../../redux/api/staffApi";
 import { 
   TextField, Button, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Paper, Typography, MenuItem, Select, 
@@ -19,22 +18,18 @@ const Staff = () => {
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
 
-  // Get state from Redux
-  const { staffList, isLoading, error } = useSelector((state) => state.staff);
+  // Get state using RTK Query
+  const { data: staffList = [], isLoading, error } = useGetStaffMembersQuery();
+  const [addStaffMutation] = useAddStaffMutation();
+  const [deleteStaffMutation] = useDeleteStaffMutation();
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm();
-
-  // Fetch staff on mount
-  useEffect(() => {
-    dispatch(fetchStaffMembers());
-  }, [dispatch]);
 
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      await addStaff(data);
+      await addStaffMutation(data).unwrap();
       toast.success("Staff added successfully!");
-      dispatch(fetchStaffMembers());
       reset();
       setShowForm(false);
     } catch (err) {
@@ -59,9 +54,8 @@ const Staff = () => {
   if (!result.isConfirmed) return;
 
   try {
-    await deleteStaff(phoneNumber);
+    await deleteStaffMutation(phoneNumber).unwrap();
     toast.success('Staff deleted successfully!');
-    dispatch(fetchStaffMembers());
   } catch (err) {
     toast.error(err?.message || 'Failed to delete staff member');
   }

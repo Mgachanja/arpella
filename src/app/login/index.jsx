@@ -11,7 +11,7 @@ import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons';
 import { faUser as User } from '@fortawesome/free-regular-svg-icons';
 import logo from '../../assets/logo.jpeg';
-import { loginUser } from '../../redux/slices/authSlice';
+import { useLoginMutation } from '../../redux/api/authApi';
 import { toast } from 'react-toastify';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { persistor } from '../../redux/store';
@@ -24,7 +24,9 @@ function Login() {
   const { register, handleSubmit, formState: { errors }, setValue } = useForm();
 
   // Redux auth state
-  const { isAuthenticated, isLoading, error, user } = useSelector(state => state.auth);
+  const { isAuthenticated, user, error: globalError } = useSelector(state => state.auth);
+  const [loginUserApi, { isLoading, error: rtkError }] = useLoginMutation();
+  const error = rtkError?.data || rtkError?.error || globalError;
 
   // Local UI state
   const [rememberMe, setRememberMe] = useState(false);
@@ -54,8 +56,12 @@ function Login() {
   }, [setValue]);
 
   // Dispatch login action
-  const onSubmit = data => {
-    dispatch(loginUser({ username: data.phone, password: data.password }));
+  const onSubmit = async data => {
+    try {
+      await loginUserApi({ username: data.phone, password: data.password }).unwrap();
+    } catch (err) {
+      // Errors handled gracefully by RTK Query / authSlice matchers
+    }
   };
 
   // After auth success: enforce Remember‑Me policy and navigate

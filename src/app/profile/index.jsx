@@ -27,6 +27,7 @@ import { baseUrl } from "../../constants";
 
 import { logout } from "../../redux/slices/authSlice";
 import { persistor } from "../../redux/store";
+import { useEditUserMutation } from "../../redux/api/authApi";
 
 function Profile() {
   const dispatch = useDispatch();
@@ -43,6 +44,7 @@ function Profile() {
   const [editingField, setEditingField] = useState("");
   const [newValue, setNewValue] = useState("");
   const [isApiLoading, setIsApiLoading] = useState(false);
+  const [editUserApi] = useEditUserMutation();
 
   // Fetch current user orders
   useEffect(() => {
@@ -101,11 +103,13 @@ function Profile() {
 
     setIsApiLoading(true);
     try {
-      await axios.put(`${baseUrl}/user-details/${user.phone}`, payload);
+      await editUserApi({ phoneNumber: user.phone, payload }).unwrap();
       await Swal.fire("Saved!", "", "success");
+      // The store is updated thanks to RTK query matcher in authSlice, so no need for reload normally 
+      // but if other components strictly rely on it:
       window.location.reload();
     } catch (e) {
-      Swal.fire("Error", e?.response?.data?.message || "Failed", "error");
+      Swal.fire("Error", e?.data?.message || e?.error || "Failed", "error");
     } finally {
       setIsApiLoading(false);
       setShowEditModal(false);

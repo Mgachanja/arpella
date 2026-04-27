@@ -12,7 +12,7 @@ import {
   Legend,
 } from 'chart.js';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchStaffMembers, selectStaffCount } from '../../redux/slices/staffSlice';
+import { useGetStaffMembersQuery } from '../../redux/api/staffApi';
 import { fetchProductsAndRelated } from '../../redux/slices/productsSlice';
 import {
   Container,
@@ -40,7 +40,8 @@ ChartJS.register(
 
 const Home = () => {
   const dispatch = useDispatch();
-  const staffCount = useSelector(selectStaffCount);
+  const { data: staffList = [] } = useGetStaffMembersQuery();
+  const staffCount = staffList.filter(staff => staff.isActive).length;
   const { user } = useSelector(state => state.auth);
 
   const { products, inventories, categories, subcategories, loading, error } = useSelector(
@@ -69,7 +70,6 @@ const Home = () => {
   const timeString = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
-    dispatch(fetchStaffMembers());
     dispatch(fetchProductsAndRelated());
   }, [dispatch]);
 

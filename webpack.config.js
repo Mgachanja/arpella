@@ -19,12 +19,12 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.(js|jsx)$/, // Match .js and .jsx files
+        test: /\.(js|jsx|ts|tsx)$/, // Match .js, .jsx, .ts, .tsx files
         exclude: /node_modules/, // Exclude node_modules
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env', '@babel/preset-react'], // Transpile modern JS and React
+            presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript'], // Transpile modern JS, React, and TypeScript
           },
         },
       },
@@ -43,7 +43,7 @@ module.exports = {
     ],
   },
   resolve: {
-    extensions: ['.js', '.jsx'], 
+    extensions: ['.js', '.jsx', '.ts', '.tsx'], 
   },
   plugins: [
     new HtmlWebpackPlugin({
