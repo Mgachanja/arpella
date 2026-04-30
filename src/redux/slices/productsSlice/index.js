@@ -2,6 +2,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { baseUrl } from '../../../constants/index';
+import { store } from '../../store';
 
 /** Normalize a single product's structure */
 const normalizeProduct = item => {
@@ -60,8 +61,10 @@ const mergeProductsByName = data => {
  * Keep this exported so productIndex and react-query can use it.
  */
 export const fetchProductsApi = async (pageNumber = 1, pageSize = 50) => {
+  const token = store.getState().auth?.token;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
   const url = `${baseUrl}/paged-products?pageNumber=${pageNumber}&pageSize=${pageSize}`;
-  const res  = await axios.get(url);
+  const res  = await axios.get(url, { headers });
   const items = Array.isArray(res.data) ? res.data : (res.data.items || []);
   const hasMore = items.length === pageSize; // heuristic — adjust if backend provides totalPages/hasMore
   return { items, hasMore };
@@ -73,11 +76,15 @@ export const fetchProductsApi = async (pageNumber = 1, pageSize = 50) => {
  */
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
-  async (arg = { pageNumber: 1, pageSize: 50 }, { rejectWithValue }) => {
+  async (arg = { pageNumber: 1, pageSize: 50 }, { getState, rejectWithValue }) => {
     try {
+      const state = getState();
+      const token = state.auth?.token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       const { pageNumber = 1, pageSize = 50 } = arg || {};
       const url = `${baseUrl}/paged-products?pageNumber=${pageNumber}&pageSize=${pageSize}`;
-      const { data } = await axios.get(url);
+      const { data } = await axios.get(url, { headers });
       const arr = Array.isArray(data) ? data : (data.items || []);
       const merged = mergeProductsByName(arr);
       // return a shape matching page fetch
@@ -108,7 +115,9 @@ export const fetchProductImage = createAsyncThunk(
     }
 
     try {
-      const response = await axios.get(`${baseUrl}/product-image/${productId}`);
+      const token = state.auth?.token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await axios.get(`${baseUrl}/product-image/${productId}`, { headers });
       let imageData   = response.data;
 
       if (Array.isArray(imageData) && imageData.length > 0) {
@@ -136,10 +145,14 @@ export const fetchProductImage = createAsyncThunk(
  */
 export const fetchProductsAndRelated = createAsyncThunk(
   'products/fetchProductsAndRelated',
-  async (_, { dispatch, rejectWithValue }) => {
+  async (_, { dispatch, getState, rejectWithValue }) => {
     try {
+      const state = getState();
+      const token = state.auth?.token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       // Fetch only a lightweight products page (page 1) to keep admin/home initial state safe
-      const prodRes = await axios.get(`${baseUrl}/paged-products?pageNumber=1&pageSize=50`).catch(() => ({ data: [] }));
+      const prodRes = await axios.get(`${baseUrl}/paged-products?pageNumber=1&pageSize=50`, { headers }).catch(() => ({ data: [] }));
       const products = mergeProductsByName(Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data.items || []));
 
       // populate products in store (this is safe small-first-page)
@@ -147,9 +160,9 @@ export const fetchProductsAndRelated = createAsyncThunk(
 
       // Fetch other related resources concurrently
       const [invRes, catRes, subRes] = await Promise.all([
-        axios.get(`${baseUrl}/inventories`).catch(() => ({ data: [] })),
-        axios.get(`${baseUrl}/categories`).catch(() => ({ data: [] })),
-        axios.get(`${baseUrl}/subcategories`).catch(() => ({ data: [] }))
+        axios.get(`${baseUrl}/inventories`, { headers }).catch(() => ({ data: [] })),
+        axios.get(`${baseUrl}/categories`, { headers }).catch(() => ({ data: [] })),
+        axios.get(`${baseUrl}/subcategories`, { headers }).catch(() => ({ data: [] }))
       ]);
 
       return {

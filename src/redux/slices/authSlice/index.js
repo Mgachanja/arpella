@@ -1,12 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { toast } from 'react-toastify';
-import axios from 'axios';
-import { baseUrl } from '../../../constants';
-import { loginUserApi, registerUserApi } from '../../../services/Auth';
 
 // Replaced by authApi.ts RTK Query mutations
 
-import { authApi } from '../api/authApi';
+import { authApi } from '../../api/authApi';
 
 const authSlice = createSlice({
   name: 'auth',
@@ -46,9 +43,14 @@ const authSlice = createSlice({
       .addMatcher(authApi.endpoints.login.matchFulfilled, (state, action) => {
         state.isLoading = false;
         state.isAuthenticated = true;
-        // The backend payload structure: { token, user: { firstName, lastName, role, ... } }
-        state.token = action.payload.token;
-        state.user = action.payload.user;
+        console.log("[AuthSlice] Login payload received:", action.payload);
+        
+        // Defensively extract token and user depending on backend payload structure
+        const token = action.payload?.token || action.payload?.user?.token || action.payload?.data?.token;
+        const user = action.payload?.user || action.payload?.data?.user || action.payload?.data || action.payload;
+
+        state.token = token;
+        state.user = user;
         toast.success(`Welcome, ${state.user?.firstName || 'User'}!`);
       })
       .addMatcher(authApi.endpoints.login.matchRejected, (state, action) => {

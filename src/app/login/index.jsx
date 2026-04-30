@@ -26,7 +26,10 @@ function Login() {
   // Redux auth state
   const { isAuthenticated, user, error: globalError } = useSelector(state => state.auth);
   const [loginUserApi, { isLoading, error: rtkError }] = useLoginMutation();
-  const error = rtkError?.data || rtkError?.error || globalError;
+  const rawError = rtkError?.data || rtkError?.error || globalError;
+  const error = typeof rawError === 'object' && rawError !== null 
+    ? (rawError.detail || rawError.message || JSON.stringify(rawError)) 
+    : rawError;
 
   // Local UI state
   const [rememberMe, setRememberMe] = useState(false);
@@ -69,14 +72,14 @@ function Login() {
     if (!isAuthenticated) return;
 
     // If staff checked Remember Me, revoke and warn
-    if (rememberMe && user?.role !== 'Customer') {
+    if (rememberMe && (user?.roles?.[0] || user?.role) !== 'Customer') {
       toast.warning('Staff members are not granted the Remember Me feature');
       localStorage.removeItem('rememberedPhone');
       localStorage.removeItem('rememberedPassword');
     }
 
     // If customer and opted in, persist credentials
-    if (rememberMe && user?.role === 'Customer') {
+    if (rememberMe && (user?.roles?.[0] || user?.role) === 'Customer') {
       const phoneInput    = document.querySelector('input[name="phone"]')?.value;
       const passwordInput = document.querySelector('input[name="password"]')?.value;
       localStorage.setItem('rememberedPhone', phoneInput);

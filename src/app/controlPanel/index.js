@@ -41,7 +41,7 @@ const Dashboard = () => {
   const [selectedMenu, setSelectedMenu] = useState('Home');
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useSelector((state) => state.auth); // Get user info
-  const role = user?.role || 'Customer';
+  const role = user?.roles?.[0] || user?.role || 'Customer';
 
   const allowedRoutes = {
     Admin: ['Home', 'Stock Management', 'Add Staff', 'Customer', 'Orders', 'Settings', 'Accounts'],

@@ -244,7 +244,7 @@ function Profile() {
             )}
 
             {/* Admin Panel */}
-            {user?.role !== "Customer" && (
+            {(user?.roles?.[0] || user?.role) !== "Customer" && (
               <div className="text-center mt-4">
                 <Button onClick={() => navigate("/control")} variant="primary">
                   Admin Panel
