@@ -90,133 +90,151 @@ function Registration() {
   };
 
   return (
-    <div className="bg-custom">
-      <div className="container pb-5 pt-1">
-        <h2 className="text-center font-weight-bold mb-2" style={{ fontSize: '1.75rem', fontWeight: 500 }}>
-          Welcome to Arpella
-        </h2>
-        <div className="row justify-content-center p-4">
-          {/* Left Column: Image with Full-Width App Version Ribbon */}
-          <div className="col-md-6 position-relative p-0">
+    <>
+      <div className="container-fluid vh-100 p-0 d-flex align-items-center justify-content-center" style={{ backgroundColor: '#f0f2f5' }}>
+        <div className="row g-0 w-100 h-100 shadow-lg rounded-0 overflow-hidden bg-white">
+          {/* Left: Logo + Version ribbon */}
+          <div className="col-md-6 d-none d-md-block position-relative">
             <img
               src={logo}
               alt="Arpella logo"
-              className="img-fluid rounded w-100 h-100"
+              className="w-100 h-100"
               style={{ objectFit: 'cover' }}
             />
+            <div className="position-absolute top-0 start-0 w-100 h-100" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.5) 100%)' }}></div>
             <div
-              style={{
-                position: 'absolute',
-                bottom: '40px', // Raised a little bit from the bottom
-                left: '0',
-                width: '100%',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                color: '#fff',
-                textAlign: 'center',
-                padding: '8px 0',
-                fontSize: '1rem',
-                fontWeight: 'bold',
-              }}
+              className="position-absolute w-100 text-center"
+              style={{ bottom: '50px', color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
             >
-              App Version {VERSION}
+              <h1 className="fw-bolder mb-2" style={{ letterSpacing: '3px' }}>ARPELLA</h1>
+              <span className="badge border border-light rounded-pill px-4 py-2 fw-semibold" style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>App Version {VERSION}</span>
             </div>
           </div>
 
-          {/* Right Column: Form */}
-          <div className="col-md-6">
-            <h2 className="text-center mb-1" style={{ fontSize: '1.2rem', fontWeight: 400 }}>
-              Create Your Account
-            </h2>
-            <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="form-group mb-3 text-start">
-                <label>First Name:</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="First Name"
-                  {...register('FirstName', { required: 'First Name is required' })}
-                />
-              </div>
-
-              <div className="form-group mb-3 text-start">
-                <label>Last Name:</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Last Name"
-                  {...register('LastName', { required: 'Last Name is required' })}
-                />
-              </div>
-
-              <div className="form-group mb-3 text-start">
-                <label>Email: <small className="text-muted">(Optional)</small></label>
-                <input
-                  type="email"
-                  className="form-control form-control-sm"
-                  placeholder="Email"
-                  {...register('email')}
-                />
-              </div>
-
-              <div className="form-group mb-3 text-start">
-                <label>Password:</label>
-                <div className="input-group">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="Password"
-                    className="form-control form-control-sm"
-                    {...register('password', { required: 'Password is required', validate: validatePassword })}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
-                  </button>
+          {/* Right: Registration form */}
+          <div className="col-md-6 d-flex flex-column justify-content-center align-items-center p-4 p-md-5 position-relative" style={{ overflowY: 'auto' }}>
+            <div className="w-100" style={{ maxWidth: '460px', marginTop: 'auto', marginBottom: 'auto' }}>
+              <div className="text-center mb-4">
+                <div className="d-md-none mb-3">
+                  <img src={logo} alt="Arpella Logo" className="rounded-circle shadow-sm" style={{ width: '70px', height: '70px', objectFit: 'cover' }} />
                 </div>
+                <h2 className="fw-bolder" style={{ color: '#1a1d20' }}>Create Account</h2>
+                <p className="text-secondary fw-medium">Join Arpella today. It's free and easy.</p>
               </div>
 
-              <div className="form-group mb-3 text-start">
-                <label>Phone Number:</label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Phone Number"
-                  {...register('phone', { required: 'Phone Number is required' })}
-                />
-              </div>
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="row g-3 mb-3">
+                  <div className="col-sm-6 text-start">
+                    <label className="form-label fw-bold text-secondary small text-uppercase">First Name</label>
+                    <input
+                      type="text"
+                      className={`form-control border-0 bg-light ${errors.FirstName ? 'is-invalid' : ''}`}
+                      placeholder="John"
+                      style={{ borderRadius: '0.75rem', padding: '0.75rem 1rem' }}
+                      {...register('FirstName', { required: 'First Name is required' })}
+                    />
+                    {errors.FirstName && <small className="text-danger mt-1 d-block fw-semibold">{errors.FirstName.message}</small>}
+                  </div>
 
-              {/* Remember Me Checkbox */}
-              <div className="form-group mb-3 text-start">
-                <Form.Check
-                  type="checkbox"
-                  label="Remember Me"
-                  {...register('rememberMe')}
-                />
-              </div>
+                  <div className="col-sm-6 text-start">
+                    <label className="form-label fw-bold text-secondary small text-uppercase">Last Name</label>
+                    <input
+                      type="text"
+                      className={`form-control border-0 bg-light ${errors.LastName ? 'is-invalid' : ''}`}
+                      placeholder="Doe"
+                      style={{ borderRadius: '0.75rem', padding: '0.75rem 1rem' }}
+                      {...register('LastName', { required: 'Last Name is required' })}
+                    />
+                    {errors.LastName && <small className="text-danger mt-1 d-block fw-semibold">{errors.LastName.message}</small>}
+                  </div>
+                </div>
 
-              <button type="submit" className="btn btn-primary btn-sm w-100 mb-3" disabled={isLoading}>
-                {isLoading ? 'Registering...' : 'Register'}
-              </button>
+                <div className="mb-3 text-start">
+                  <label className="form-label fw-bold text-secondary small text-uppercase">Phone Number</label>
+                  <input
+                    type="text"
+                    className={`form-control border-0 bg-light ${errors.phone ? 'is-invalid' : ''}`}
+                    placeholder="254XXXXXXXX"
+                    style={{ borderRadius: '0.75rem', padding: '0.75rem 1rem' }}
+                    {...register('phone', { required: 'Phone Number is required' })}
+                  />
+                  {errors.phone && <small className="text-danger mt-1 d-block fw-semibold">{errors.phone.message}</small>}
+                </div>
 
-              <span className="text-center App mb-3 d-block"> or </span>
-              <div className="d-grid gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="mt-3 btn btn-outline-dark btn-sm"
-                >
-                  <FontAwesomeIcon icon={User} /> Already have an account? Login
+                <div className="mb-3 text-start">
+                  <label className="form-label fw-bold text-secondary small text-uppercase">Email <small className="text-muted text-lowercase fw-normal">(Optional)</small></label>
+                  <input
+                    type="email"
+                    className="form-control border-0 bg-light"
+                    placeholder="john@example.com"
+                    style={{ borderRadius: '0.75rem', padding: '0.75rem 1rem' }}
+                    {...register('email')}
+                  />
+                </div>
+
+                <div className="mb-3 text-start">
+                  <label className="form-label fw-bold text-secondary small text-uppercase mb-1">Password</label>
+                  <div className={`d-flex bg-light align-items-center ${errors.password ? 'border border-danger' : 'border-0'}`} style={{ borderRadius: '0.75rem', overflow: 'hidden' }}>  
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      className="form-control border-0 bg-transparent shadow-none"
+                      style={{ padding: '0.75rem 1rem' }}
+                      {...register('password', { required: 'Password is required', validate: validatePassword })}
+                    />
+                    <button
+                      type="button"
+                      className="btn border-0 shadow-none text-secondary px-3"
+                      onClick={() => setShowPassword(s => !s)}
+                    >
+                      <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+                    </button>
+                  </div>
+                  {errors.password && <small className="text-danger mt-1 d-block fw-semibold">{errors.password.message}</small>}
+                </div>
+
+                {/* Remember Me */}
+                <div className="form-group mb-4 text-start">
+                  <Form.Check
+                    type="checkbox"
+                    id="rememberMeReg"
+                    label={<span className="text-secondary fw-medium">Remember me</span>}
+                    {...register('rememberMe')}
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary btn-lg w-100 mb-4 fw-bold shadow-sm" disabled={isLoading} style={{ borderRadius: '0.75rem', padding: '0.85rem' }}>
+                  {isLoading ? 'Registering...' : 'Register'}
                 </button>
-                <button type="button" className="btn btn-outline-danger btn-sm">
-                  <FontAwesomeIcon icon={faGoogle} /> Login with Google
-                </button>
-                <button type="button" className="btn btn-outline-primary btn-sm">
-                  <FontAwesomeIcon icon={faFacebook} /> Login with Facebook
-                </button>
-              </div>
-            </form>
+
+                <div className="position-relative mb-4 text-center">
+                  <hr className="text-muted" />
+                  <span className="position-absolute top-50 start-50 translate-middle bg-white px-3 text-muted small fw-bold text-uppercase">
+                    or continue with
+                  </span>
+                </div>
+
+                <div className="d-flex gap-3 mb-4">
+                  <Button variant="outline-danger" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2">
+                    <FontAwesomeIcon icon={faGoogle} /> Google
+                  </Button>
+                  <Button variant="outline-primary" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2">
+                    <FontAwesomeIcon icon={faFacebook} /> Facebook
+                  </Button>
+                </div>
+
+                <div className="text-center">
+                  <span className="text-secondary fw-medium">Already have an account? </span>
+                  <span 
+                    className="text-primary fw-bold" 
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate('/login')}
+                  >
+                    Sign In
+                  </span>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -322,7 +340,7 @@ function Registration() {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div>
+    </>
   );
 }
 

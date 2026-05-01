@@ -129,139 +129,155 @@ function Login() {
   };
 
   return (
-    <div className="bg-custom">
-      <div className="container pb-5 pt-3">
-        <div className="row">
+    <>
+      <div className="container-fluid vh-100 p-0 d-flex align-items-center justify-content-center" style={{ backgroundColor: '#f0f2f5' }}>
+        <div className="row g-0 w-100 h-100 shadow-lg rounded-0 overflow-hidden bg-white">
           {/* Left: Logo + Version ribbon */}
-          <div className="col-md-6 position-relative p-0">
+          <div className="col-md-6 d-none d-md-block position-relative">
             <img
               src={logo}
               alt="Arpella logo"
-              className="img-fluid rounded w-100 h-100"
+              className="w-100 h-100"
               style={{ objectFit: 'cover' }}
             />
+            <div className="position-absolute top-0 start-0 w-100 h-100" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.5) 100%)' }}></div>
             <div
-              style={{
-                position: 'absolute',
-                bottom: 40,
-                left: 0,
-                width: '100%',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                color: '#fff',
-                textAlign: 'center',
-                padding: '8px 0',
-                fontWeight: 'bold',
-              }}
+              className="position-absolute w-100 text-center"
+              style={{ bottom: '50px', color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
             >
-              App Version 0.0.4
+              <h1 className="fw-bolder mb-2" style={{ letterSpacing: '3px' }}>ARPELLA</h1>
+              <span className="badge border border-light rounded-pill px-4 py-2 fw-semibold" style={{ backdropFilter: 'blur(8px)', backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>App Version 0.0.4</span>
             </div>
           </div>
 
           {/* Right: Login form */}
-          <div className="col-md-6">
-            <h2 className="text-center font-weight-bold mb-2">
-              Welcome back to Arpella
-            </h2>
-
-            <form onSubmit={handleSubmit(onSubmit)}>
-              {/* Phone */}
-              <div className="form-group mb-3 text-start">
-                <label>Phone Number:</label>
-                <input
-                  name="phone"
-                  type="text"
-                  className="form-control"
-                  placeholder="254XXXXXXXX"
-                  {...register('phone', {
-                    required: 'Phone number is required',
-                    pattern: {
-                      value: /^254[0-9]{9}$/,
-                      message: 'Must start with 254 and have 8 digits',
-                    },
-                  })}
-                />
-                {errors.phone && (
-                  <small className="text-danger">
-                    {errors.phone.message}
-                  </small>
-                )}
+          <div className="col-md-6 d-flex flex-column justify-content-center align-items-center p-4 p-md-5 position-relative">
+            <div className="w-100" style={{ maxWidth: '420px' }}>
+              <div className="text-center mb-5">
+                <div className="d-md-none mb-4">
+                  <img src={logo} alt="Arpella Logo" className="rounded-circle shadow-sm" style={{ width: '90px', height: '90px', objectFit: 'cover' }} />
+                </div>
+                <h2 className="fw-bolder" style={{ color: '#1a1d20' }}>Welcome Back</h2>
+                <p className="text-secondary fw-medium">Please enter your details to sign in.</p>
               </div>
 
-              {/* Password + Forgot link */}
-              <div className="d-flex justify-content-between align-items-center mb-1">
-                <label className="mb-0">Password:</label>
-                <small
-                  style={{ cursor: 'pointer', fontWeight: 'bold' }}
-                  onClick={() => {
-                    setForgotPhone('254');
-                    setShowForgotModal(true);
-                  }}
-                >
-                  Forgot Password?
-                </small>
-              </div>
+              <form onSubmit={handleSubmit(onSubmit)}>
+                {/* Phone */}
+                <div className="mb-4 text-start">
+                  <label className="form-label fw-bold text-secondary small text-uppercase">Phone Number</label>
+                  <input
+                    name="phone"
+                    type="text"
+                    className={`form-control form-control-lg border-0 bg-light ${errors.phone ? 'is-invalid' : ''}`}
+                    placeholder="254XXXXXXXX"
+                    style={{ borderRadius: '0.75rem', padding: '0.85rem 1rem' }}
+                    {...register('phone', {
+                      required: 'Phone number is required',
+                      pattern: {
+                        value: /^254[0-9]{9}$/,
+                        message: 'Must start with 254 and have 8 digits',
+                      },
+                    })}
+                  />
+                  {errors.phone && (
+                    <small className="text-danger mt-1 d-block fw-semibold">
+                      {errors.phone.message}
+                    </small>
+                  )}
+                </div>
 
-              {/* Password input + toggle */}
-              <div className="input-group mb-3">  
-                <input
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
-                  className="form-control"
-                  {...register('password', {
-                    required: 'Password is required',
-                  })}
-                />
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary"
-                  onClick={() => setShowPassword(s => !s)}
-                >
-                  <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+                {/* Password */}
+                <div className="mb-4 text-start">
+                  <div className="d-flex justify-content-between align-items-end mb-1">
+                    <label className="form-label fw-bold text-secondary small text-uppercase mb-0">Password</label>
+                    <small
+                      className="text-primary fw-bold"
+                      style={{ cursor: 'pointer', textDecoration: 'none' }}
+                      onClick={() => {
+                        setForgotPhone('254');
+                        setShowForgotModal(true);
+                      }}
+                    >
+                      Forgot Password?
+                    </small>
+                  </div>
+                  <div className={`d-flex bg-light align-items-center ${errors.password ? 'border border-danger' : 'border-0'}`} style={{ borderRadius: '0.75rem', overflow: 'hidden' }}>  
+                    <input
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      className="form-control form-control-lg border-0 bg-transparent shadow-none"
+                      style={{ padding: '0.85rem 1rem' }}
+                      {...register('password', {
+                        required: 'Password is required',
+                      })}
+                    />
+                    <button
+                      type="button"
+                      className="btn border-0 shadow-none text-secondary px-3"
+                      onClick={() => setShowPassword(s => !s)}
+                    >
+                      <FontAwesomeIcon icon={showPassword ? faEyeSlash : faEye} />
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <small className="text-danger mt-1 d-block fw-semibold">
+                      {errors.password.message}
+                    </small>
+                  )}
+                </div>
+
+                {/* Remember Me */}
+                <div className="form-group mb-4 text-start">
+                  <Form.Check
+                    type="checkbox"
+                    id="rememberMe"
+                    label={<span className="text-secondary fw-medium">Remember me</span>}
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                  />
+                </div>
+
+                {/* Submit */}
+                <button type="submit" className="btn btn-primary btn-lg w-100 mb-4 fw-bold shadow-sm" style={{ borderRadius: '0.75rem', padding: '0.85rem' }}>
+                  {isLoading ? 'Logging in...' : 'Sign In'}
                 </button>
-              </div>
-              {errors.password && (
-                <small className="text-danger">
-                  {errors.password.message}
-                </small>
-              )}
 
-              {/* Remember Me */}
-              <div className="form-group mb-3 text-start">
-                <Form.Check
-                  type="checkbox"
-                  id="rememberMe"
-                  label="Remember Me"
-                  checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                />
-              </div>
+                {/* Alternative actions */}
+                <div className="position-relative mb-4 text-center">
+                  <hr className="text-muted" />
+                  <span className="position-absolute top-50 start-50 translate-middle bg-white px-3 text-muted small fw-bold text-uppercase">
+                    or continue with
+                  </span>
+                </div>
 
-              {/* Submit */}
-              <button type="submit" className="btn btn-primary w-100 mb-3">
-                {isLoading ? 'Logging in...' : 'Login'}
-              </button>
+                <div className="d-flex gap-3 mb-4">
+                  <Button variant="outline-danger" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2">
+                    <FontAwesomeIcon icon={faGoogle} /> Google
+                  </Button>
+                  <Button variant="outline-primary" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2">
+                    <FontAwesomeIcon icon={faFacebook} /> Facebook
+                  </Button>
+                </div>
 
-              {/* Alternative actions */}
-              <div className="text-center font-weight-bold mb-3">or</div>
-              <div className="d-grid gap-3">
-                <Button variant="outline-dark" onClick={() => navigate('/')}>
-                  <FontAwesomeIcon icon={User} /> Don’t have an account? Register
-                </Button>
-                <Button variant="outline-danger">
-                  <FontAwesomeIcon icon={faGoogle} /> Login with Google
-                </Button>
-                <Button variant="outline-primary">
-                  <FontAwesomeIcon icon={faFacebook} /> Login with Facebook
-                </Button>
-              </div>
+                <div className="text-center">
+                  <span className="text-secondary fw-medium">Don't have an account? </span>
+                  <span 
+                    className="text-primary fw-bold" 
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => navigate('/')}
+                  >
+                    Create one
+                  </span>
+                </div>
 
-              {error && (
-                <small className="text-danger d-block text-center mt-2">
-                  {error}
-                </small>
-              )}
-            </form>
+                {error && (
+                  <div className="alert alert-danger mt-4 text-center border-0" style={{ borderRadius: '0.5rem' }}>
+                    <small className="fw-semibold">{error}</small>
+                  </div>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -303,7 +319,7 @@ function Login() {
         </Modal.Body>
         <Modal.Footer><Button onClick={handleResetPassword}>Reset Password</Button></Modal.Footer>
       </Modal>
-    </div>
+    </>
   );
 }
 
