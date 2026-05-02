@@ -26,114 +26,110 @@ import Button from 'react-bootstrap/Button';
 import { Row, Col, Offcanvas, Accordion, ListGroup } from 'react-bootstrap';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-// Styled container for consistent layout width
-const CenteredContainer = styled(MuiContainer)({
+const CenteredContainer = styled(MuiContainer)(({ theme }) => ({
   maxWidth: '1400px',
   margin: '0 auto',
-  paddingLeft: '16px',
-  paddingRight: '16px',
-  paddingTop: '16px',
-  paddingBottom: '16px'
-});
-
-// Styled category selection buttons
-const CategoryButton = styled(MuiButton)(({ isSelected }) => ({
-  fontWeight: 600,
-  fontSize: '0.9rem',
-  textTransform: 'none',
-  padding: '4px 16px',
-  margin: '2px',
-  borderRadius: 0,
-  borderBottom: isSelected ? '3px solid #1976d2' : '3px solid transparent',
-  backgroundColor: isSelected ? 'rgba(25,118,210,0.08)' : 'transparent',
-  color: isSelected ? '#1976d2' : '#424242',
-  minHeight: '32px',
-  transition: 'all 0.3s ease',
-  '&:hover': {
-    backgroundColor: isSelected
-      ? 'rgba(25,118,210,0.12)'
-      : 'rgba(66,66,66,0.04)',
-    transform: 'translateY(-1px)',
-    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+  paddingLeft: '24px',
+  paddingRight: '24px',
+  paddingTop: '24px',
+  paddingBottom: '48px',
+  [theme.breakpoints.down('sm')]: {
+    paddingLeft: '16px',
+    paddingRight: '16px'
   }
 }));
 
-// Styled subcategory buttons for visual hierarchy
-const SubcategoryButton = styled(MuiButton)(({ isSelected }) => ({
-  fontWeight: 500,
-  fontSize: '0.85rem',
-  textTransform: 'none',
-  padding: '4px 12px',
-  margin: '2px 4px',
-  borderRadius: 0,
-  borderLeft: isSelected ? '4px solid #1976d2' : '4px solid transparent',
-  backgroundColor: isSelected ? 'rgba(25,118,210,0.06)' : 'rgba(245,245,245,0.8)',
-  color: isSelected ? '#1976d2' : '#555',
-  minHeight: '32px',
-  transition: 'all 0.25s ease',
-  '&:hover': {
-    backgroundColor: isSelected
-      ? 'rgba(25,118,210,0.1)'
-      : 'rgba(25,118,210,0.04)',
-    transform: 'translateX(2px)',
-    boxShadow: '2px 2px 6px rgba(0,0,0,0.08)'
-  }
-}));
-
-// Section title styling for subcategories
-const SubcategoryTitle = styled(Typography)({
-  fontSize: '1.2rem',
-  fontWeight: 700,
-  color: '#2c3e50',
+const HeroSection = styled(Box)(({ theme }) => ({
+  background: 'linear-gradient(135deg, #c85d00 0%, #492301ff 100%)',
+  color: 'white',
+  padding: '80px 20px',
   textAlign: 'center',
-  marginBottom: '12px',
+  borderRadius: '0 0 40px 40px',
+  marginBottom: '40px',
   position: 'relative',
-  '&::after': {
+  overflow: 'hidden',
+  '&::before': {
     content: '""',
     position: 'absolute',
-    bottom: '-4px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '60px',
-    height: '2px',
-    background: 'linear-gradient(90deg, #1976d2, #42a5f5)',
-    borderRadius: '2px'
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)',
   }
+}));
+
+const SearchContainer = styled(Box)(({ theme }) => ({
+  maxWidth: '600px',
+  margin: '30px auto 0',
+  position: 'relative',
+  zIndex: 1
+}));
+
+const CategoryPill = styled(MuiButton)(({ isSelected }) => ({
+  borderRadius: '50px',
+  padding: '8px 24px',
+  margin: '4px',
+  whiteSpace: 'nowrap',
+  textTransform: 'none',
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  transition: 'all 0.2s ease',
+  backgroundColor: (isSelected ? 'rgba(200, 93, 0, 0.04)' : '#fff') + ' !important',
+  color: (isSelected ? '#0057c8ff' : '#4b5563') + ' !important',
+  border: '1.5px solid !important',
+  borderColor: (isSelected ? '#002fc8ff' : '#e5e7eb') + ' !important',
+  boxShadow: 'none',
+  minHeight: '40px',
+  '&:hover': {
+    backgroundColor: 'rgba(200, 93, 0, 0.08) !important',
+    borderColor: '#002fc8ff !important',
+    color: '#002fc8ff !important',
+    transform: 'translateY(-2px)'
+  }
+}));
+
+const SubcategoryButton = styled(MuiButton)(({ isSelected }) => ({
+  fontWeight: 600,
+  fontSize: '0.85rem',
+  textTransform: 'none',
+  padding: '6px 16px',
+  margin: '4px',
+  borderRadius: '50px',
+  backgroundColor: (isSelected ? 'rgba(200, 93, 0, 0.04)' : 'transparent') + ' !important',
+  color: (isSelected ? '#c85d00' : '#4b5563') + ' !important',
+  minHeight: '36px',
+  border: '1px solid !important',
+  borderColor: (isSelected ? '#c85d00' : '#e5e7eb') + ' !important',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    backgroundColor: 'rgba(200, 93, 0, 0.08) !important',
+    borderColor: '#c85d00 !important',
+    color: '#c85d00 !important',
+    transform: 'translateY(-1px)'
+  }
+}));
+
+const SubcategoryTitle = styled(Typography)({
+  fontSize: '1.25rem',
+  fontWeight: 700,
+  color: '#1f2937',
+  textAlign: 'center',
+  marginBottom: '20px',
+  position: 'relative'
 });
 
-// Responsive products grid container with equal-sized containers
 const ProductsGrid = styled(Box)(({ theme }) => ({
   display: 'grid',
   width: '100%',
-  gap: '16px',
-  marginTop: '24px',
+  gap: '24px',
+  marginTop: '32px',
   justifyContent: 'center',
-  justifyItems: 'center',
-  // Mobile: 2 columns with fixed width containers
-  gridTemplateColumns: 'repeat(2, 180px)',
+  gridTemplateColumns: 'repeat(auto-fill, 180px)',
   
-  // Small tablets: 3 columns
-  '@media (min-width: 600px)': {
-    gridTemplateColumns: 'repeat(3, 180px)',
-    gap: '18px'
-  },
-  
-  // Tablets: 4 columns
-  '@media (min-width: 800px)': {
-    gridTemplateColumns: 'repeat(4, 180px)',
-    gap: '20px'
-  },
-  
-  // Desktop: 5 columns
-  '@media (min-width: 1000px)': {
-    gridTemplateColumns: 'repeat(5, 180px)',
-    gap: '22px'
-  },
-  
-  // Large desktop: 6 columns
-  '@media (min-width: 1200px)': {
-    gridTemplateColumns: 'repeat(6, 180px)',
-    gap: '24px'
+  [theme.breakpoints.down('sm')]: {
+    gap: '16px',
+    gridTemplateColumns: 'repeat(auto-fill, 160px)'
   }
 }));
 
@@ -297,80 +293,83 @@ export default function ProductIndex() {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <NavBar />
 
-      <CenteredContainer>
-        {/* Hamburger for small screens only - DOES NOT affect large screen layout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-          <div className="d-lg-none">
-            <IconButton aria-label="menu" onClick={() => setShowMenuOff(true)} size="small">
-              <MenuIcon />
-            </IconButton>
-          </div>
-
+      <HeroSection>
+        <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+          Everything you need, delivered.
+        </Typography>
+        <Typography variant="h6" sx={{ opacity: 0.9, mb: 4, fontWeight: 400 }}>
+          Search through thousands of products from your favorite stores.
+        </Typography>
+        <SearchContainer>
           <TextField
             fullWidth
-            placeholder="Search products, categories..."
+            placeholder="Search products, categories, brands..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             variant="outlined"
-            sx={{ mb: 0 }}
             InputProps={{
               sx: {
-                fontSize: '1rem',
-                padding: '8px',
-                height: '3rem'
+                fontSize: '1.1rem',
+                padding: '12px 20px',
+                height: '4rem',
+                backgroundColor: '#fff',
+                borderRadius: '50px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                '& fieldset': { border: 'none' }
               }
             }}
           />
-        </div>
+        </SearchContainer>
+      </HeroSection>
 
-        {/* CATEGORY STRIP: VISIBLE ONLY ON LARGE SCREENS (hidden on mobile) */}
-        <Paper
-          elevation={4}
+      <CenteredContainer>
+        {/* Mobile menu toggle */}
+        <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center', gap: 1, mb: 3 }}>
+          <IconButton aria-label="menu" onClick={() => setShowMenuOff(true)} sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}>
+            <MenuIcon color="primary" />
+          </IconButton>
+          <Typography sx={{ fontWeight: 600, color: '#4b5563' }}>Explore Categories</Typography>
+        </Box>
+
+        <Box
           sx={{
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
-            border: '1px solid rgba(0,0,0,0.08)',
-            borderRadius: '6px',
-            p: 1.5,
-            mb: 2,
-            display: { xs: 'none', lg: 'block' } // <--- hidden on mobile/small screens
+            p: 1,
+            mb: 4,
+            display: { xs: 'none', lg: 'block' }
           }}
         >
           <Typography
-            variant="h6"
-            sx={{ textAlign: 'center', mb: 1, fontSize: '1.1rem', fontWeight: 600 }}
+            variant="h5"
+            sx={{ textAlign: 'left', mb: 3, fontWeight: 700, color: '#1f2937' }}
           >
-            Product Categories
+            Popular Categories
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1 }}>
-            <CategoryButton
+            <CategoryPill
               isSelected={selectedCategory === 'All'}
               onClick={() => { setSelectedCategory('All'); setSelectedSub(null); }}
             >
               All Products
-            </CategoryButton>
+            </CategoryPill>
             {categories.map(cat => (
-              <CategoryButton
+              <CategoryPill
                 key={cat.id}
                 isSelected={String(selectedCategory?.id ?? selectedCategory) === String(cat.id)}
                 onClick={() => { setSelectedCategory(cat); setSelectedSub(null); }}
               >
                 {cat.categoryName}
-              </CategoryButton>
+              </CategoryPill>
             ))}
           </Box>
-        </Paper>
+        </Box>
 
         {/* SUBCATEGORIES: VISIBLE ONLY ON LARGE SCREENS (hidden on mobile) */}
         {selectedCategory !== 'All' && subsOf(selectedCategory).length > 0 && (
-          <Paper
-            elevation={2}
+          <Box
             sx={{
-              background: 'linear-gradient(135deg, #fafbfc 0%, #f5f6fa 100%)',
-              border: '1px solid rgba(0,0,0,0.06)',
-              borderRadius: '6px',
-              p: 1.5,
-              mb: 2,
-              display: { xs: 'none', lg: 'block' } // <--- hidden on mobile/small screens
+              p: 1,
+              mb: 4,
+              display: { xs: 'none', lg: 'block' }
             }}
           >
             <SubcategoryTitle>
@@ -387,7 +386,7 @@ export default function ProductIndex() {
                 </SubcategoryButton>
               ))}
             </Box>
-          </Paper>
+          </Box>
         )}
 
         <ProductsGrid>
@@ -437,59 +436,124 @@ export default function ProductIndex() {
         )}
       </CenteredContainer>
 
-      <Box component="footer" sx={{ mt: 'auto', py: 2, textAlign: 'center', bgcolor: 'background.paper' }}>
-        <Typography variant="body2">Contact: 0704288802</Typography>
-        <Typography variant="body2">
-          <a href="/terms-and-conditions">Terms & Conditions</a> |{' '}
-          <a href="/privacy-policy">Privacy Policy</a>
-        </Typography>
-        <Typography variant="caption">© {new Date().getFullYear()} All rights reserved.</Typography>
+      <Box 
+        component="footer" 
+        sx={{ 
+          mt: 'auto', 
+          py: 6, 
+          textAlign: 'center', 
+          bgcolor: '#fff', 
+          borderTop: '1px solid #e5e7eb' 
+        }}
+      >
+        <CenteredContainer sx={{ py: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, color: '#111827' }}>
+            Arpella Stores
+          </Typography>
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap' }}>
+            <a href="/terms-and-conditions" style={{ color: '#4b5563', textDecoration: 'none', fontWeight: 500 }}>Terms & Conditions</a>
+            <a href="/privacy-policy" style={{ color: '#4b5563', textDecoration: 'none', fontWeight: 500 }}>Privacy Policy</a>
+            <a href="/delivery-terms" style={{ color: '#4b5563', textDecoration: 'none', fontWeight: 500 }}>Delivery Terms</a>
+          </Box>
+          <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>Contact: 0704288802</Typography>
+          <Typography variant="caption" sx={{ color: '#9ca3af' }}>© {new Date().getFullYear()} Arpella Stores. All rights reserved.</Typography>
+        </CenteredContainer>
       </Box>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+      <Modal 
+        show={showModal} 
+        onHide={() => setShowModal(false)} 
+        centered
+        contentClassName="border-0 shadow-lg"
+        style={{ borderRadius: '24px' }}
+      >
         {modalProd && (
-          <>
-            <Modal.Header closeButton>
-              <Modal.Title>{modalProd.name}</Modal.Title>
+          <Box sx={{ p: 1 }}>
+            <Modal.Header closeButton className="border-0 pb-0">
+              <Modal.Title sx={{ fontWeight: 800, color: '#111827' }}>{modalProd.name}</Modal.Title>
             </Modal.Header>
-            <Modal.Body>
-              <Row>
-                <Col xs={6}>
-                  <img
-                    src={modalProd.imageUrl || '/placeholder.jpg'}
-                    alt={modalProd.name}
-                    style={{ width: '100%', maxHeight: 200, objectFit: 'cover' }}
-                    onLoad={() => handleImageLoad(modalProd.id, modalProd.name)}
-                    onError={() => handleImageError(modalProd.id, modalProd.name)}
-                  />
-                </Col>
-                <Col xs={6}>
-                  <Typography variant="h6">KSH {modalProd.price || 'N/A'}</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      className="me-2"
-                      onClick={() => setModalProd(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))}
-                    >
-                      −
-                    </Button>
-                    <Typography sx={{ mx: 1 }}>{modalProd.quantity}</Typography>
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={() => setModalProd(p => ({ ...p, quantity: p.quantity + 1 }))}
-                    >
-                      +
-                    </Button>
+            <Modal.Body className="pt-2">
+              <Row className="align-items-center">
+                <Col md={6} className="mb-3 mb-md-0">
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: '240px',
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      bgcolor: '#f3f4f6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)'
+                    }}
+                  >
+                    <img
+                      src={modalProd.imageUrl || '/placeholder.jpg'}
+                      alt={modalProd.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onLoad={() => handleImageLoad(modalProd.id, modalProd.name)}
+                      onError={() => handleImageError(modalProd.id, modalProd.name)}
+                    />
                   </Box>
-                  <Button variant="primary" className="mt-3 w-100" onClick={onAdd}>
+                </Col>
+                <Col md={6}>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="caption" sx={{ color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+                      Price
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 800, color: '#c85d00' }}>
+                      KSH {modalProd.price ? modalProd.price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ mb: 4 }}>
+                    <Typography variant="caption" sx={{ color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', mb: 1, display: 'block' }}>
+                      Select Quantity
+                    </Typography>
+                    <Box 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        bgcolor: '#f9fafb',
+                        p: 1,
+                        borderRadius: '12px',
+                        border: '1px solid #e5e7eb'
+                      }}
+                    >
+                      <IconButton
+                        onClick={() => setModalProd(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))}
+                        sx={{ bgcolor: '#fff', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', '&:hover': { bgcolor: '#f3f4f6' } }}
+                        size="small"
+                      >
+                        <span style={{ fontSize: '1.5rem', lineHeight: '1', fontWeight: 400 }}>−</span>
+                      </IconButton>
+                      <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#111827' }}>
+                        {modalProd.quantity}
+                      </Typography>
+                      <IconButton
+                        onClick={() => setModalProd(p => ({ ...p, quantity: p.quantity + 1 }))}
+                        sx={{ bgcolor: '#fff', boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', '&:hover': { bgcolor: '#f3f4f6' } }}
+                        size="small"
+                      >
+                        <span style={{ fontSize: '1.5rem', lineHeight: '1', fontWeight: 400 }}>+</span>
+                      </IconButton>
+                    </Box>
+                  </Box>
+
+                  <Button 
+                    variant="primary" 
+                    className="w-100 py-3 rounded-pill fw-bold shadow-sm"
+                    style={{ fontSize: '1.1rem' }}
+                    onClick={onAdd}
+                  >
                     Update Cart
                   </Button>
                 </Col>
               </Row>
             </Modal.Body>
-          </>
+          </Box>
         )}
       </Modal>
 

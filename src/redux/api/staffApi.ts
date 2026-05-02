@@ -7,23 +7,14 @@ export const staffApi = api.injectEndpoints({
       providesTags: ["Staff"],
     }),
     addStaff: builder.mutation<any, any>({
-      query: (staffData) => {
-        const requestData = {
-          user: {
-            firstName: staffData.FirstName,
-            lastName: staffData.LastName,
-            PhoneNumber: staffData.phoneNumber,
-            email: staffData.Email,
-            passwordHash: staffData.password,
-          },
-          role: staffData.role,
-        };
-        return {
-          url: "/control",
-          method: "POST",
-          body: requestData,
-        };
-      },
+      query: ({ role, ...userFields }) => ({
+        url: "/control",
+        method: "POST",
+        body: {
+          user: userFields,
+          role,
+        },
+      }),
       invalidatesTags: ["Staff"],
     }),
     deleteStaff: builder.mutation<any, string>({

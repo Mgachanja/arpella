@@ -43,24 +43,26 @@ export default function ProductContainer({ product }) {
 
   return (
     <div
-      className="responsive-card card shadow-sm"
+      className="responsive-card card border-0"
       style={{
         width: '180px',
         height: 'auto',
         fontSize: '0.8rem',
         margin: '0',
-        borderRadius: '8px',
+        borderRadius: '12px',
         overflow: 'hidden',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        cursor: 'pointer'
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'pointer',
+        backgroundColor: '#fff',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
       }}
       onMouseLeave={e => {
         e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
       }}
     >
       {/* Image Container - Fixed height for consistency */}
@@ -72,7 +74,7 @@ export default function ProductContainer({ product }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: '#f3f4f6',
           position: 'relative'
         }}
       >
@@ -152,16 +154,16 @@ export default function ProductContainer({ product }) {
           title={currentProduct.name}
           style={{
             margin: '0',
-            fontSize: '0.85rem',
+            fontSize: '0.9rem',
             fontWeight: '600',
-            lineHeight: '1.2',
-            color: '#333',
+            lineHeight: '1.3',
+            color: '#1f2937',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            height: '2.4em'
+            height: '2.6em'
           }}
         >
           {currentProduct.name}
@@ -171,38 +173,39 @@ export default function ProductContainer({ product }) {
         <p 
           className="card-text mb-0" 
           style={{
-            fontSize: '0.9rem',
+            fontSize: '1rem',
             fontWeight: '700',
-            color: '#1976d2',
+            color: '#c85d00',
             margin: '0'
           }}
         >
-          KSH {currentProduct.price ? currentProduct.price.toFixed(2) : '0.00'}
+          KSH {currentProduct.price ? currentProduct.price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '0.00'}
         </p>
 
         {/* Add to Cart Button - Fixed sizing */}
         <button 
           className="btn cart-btn btn-primary w-100"
           style={{
-            fontSize: '0.75rem',
-            padding: '6px 10px',
+            fontSize: '0.8rem',
+            padding: '8px 12px',
             fontWeight: '600',
-            borderRadius: '4px',
+            borderRadius: '8px',
             border: 'none',
-            backgroundColor: '#1976d2',
+            backgroundColor: '#c85d00',
             color: 'white',
             transition: 'all 0.2s ease',
             cursor: 'pointer',
             marginTop: 'auto',
-            minHeight: '32px'
+            minHeight: '36px',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.backgroundColor = '#1565c0';
-            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.backgroundColor = '#a64d00';
+            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(200, 93, 0, 0.2)';
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.backgroundColor = '#1976d2';
-            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.backgroundColor = '#c85d00';
+            e.currentTarget.style.boxShadow = 'none';
           }}
         >
           Add to Cart

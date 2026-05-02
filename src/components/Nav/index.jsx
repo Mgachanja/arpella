@@ -6,6 +6,7 @@ import { Person } from '@mui/icons-material';
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 import { NavLink } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import MuiBox from '@mui/material/Box';
 
 /**
  * Responsive NavBar
@@ -44,9 +45,27 @@ const NavBar = React.memo(function NavBar() {
             as={NavLink}
             to="/home"
             className="d-flex align-items-center"
-            style={{ fontSize: '1.5rem', fontWeight: 600 }}
+            style={{ 
+              fontSize: '1.6rem', 
+              fontWeight: 800, 
+              color: '#111827',
+              letterSpacing: '-0.025em'
+            }}
           >
-            <MdDeliveryDining size={32} className="me-2 text-dark" />
+            <MuiBox
+              sx={{
+                bgcolor: '#c85d00',
+                borderRadius: '12px',
+                p: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mr: 1.5,
+                boxShadow: '0 4px 6px -1px rgba(200, 93, 0, 0.2)'
+              }}
+            >
+              <MdDeliveryDining size={28} color="white" />
+            </MuiBox>
             Arpella Stores
           </Navbar.Brand>
 
@@ -75,19 +94,31 @@ const NavBar = React.memo(function NavBar() {
                   as={NavLink}
                   to="/profile"
                   className="me-3 p-0"
-                  style={{ textDecoration: 'none' }}
                 >
                   <Button
                     variant="outline-primary"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      padding: '0.5rem 1rem',
-                      fontSize: '1rem',
+                      padding: '0.6rem 1.25rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
                       borderRadius: '50px',
+                      border: '1.5px solid #e5e7eb',
+                      color: '#4b5563',
+                      backgroundColor: '#fff',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = '#c85d00';
+                      e.currentTarget.style.color = '#c85d00';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.color = '#4b5563';
                     }}
                   >
-                    <Person fontSize="medium" className="me-2" />
+                    <Person fontSize="small" className="me-2" />
                     Profile
                   </Button>
                 </Nav.Link>
@@ -95,25 +126,43 @@ const NavBar = React.memo(function NavBar() {
 
               {/* Desktop Cart button */}
               <div className="d-none d-lg-block">
-                <Nav.Link as={NavLink} to="/cart" className="p-0" style={{ textDecoration: 'none' }}>
+                <Nav.Link as={NavLink} to="/cart" className="p-0">
                   <Button
                     variant="primary"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      padding: '0.5rem 1rem',
-                      fontSize: '1rem',
+                      padding: '0.6rem 1.25rem',
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
                       borderRadius: '50px',
+                      backgroundColor: '#c85d00',
+                      border: 'none',
                       position: 'relative',
+                      boxShadow: '0 4px 6px -1px rgba(200, 93, 0, 0.2)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.backgroundColor = '#a64d00';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.backgroundColor = '#c85d00';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    <ShoppingCartRoundedIcon fontSize="medium" className="me-2" />
+                    <ShoppingCartRoundedIcon fontSize="small" className="me-2" />
                     Cart
                     {cartCount > 0 && (
                       <Badge
                         bg="danger"
                         pill
-                        style={{ marginLeft: 8, fontSize: '0.75rem', lineHeight: '1', padding: '0.25rem 0.45rem' }}
+                        style={{ 
+                          marginLeft: 8, 
+                          fontSize: '0.7rem', 
+                          padding: '0.3rem 0.5rem',
+                          backgroundColor: '#ef4444'
+                        }}
                       >
                         {cartCount}
                       </Badge>

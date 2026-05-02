@@ -38,10 +38,13 @@ const baseQueryWithLogout: BaseQueryFn<
     console.error(`[RTK Query Error] ${method} ${url}:`, result.error);
   }
 
-  // Auto-logout on 401 exceptions, except for login endpoints
+  // Auto-logout and redirect on 401 exceptions, except for login endpoints
   if (result?.error?.status === 401 && !url?.includes("login")) {
-    // queryApi.dispatch(api.util.resetApiState()); // if you want to reset api cache across the board on logout
     queryApi.dispatch(logout());
+    // Explicitly redirect to login if not already there
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   }
 
   return result;

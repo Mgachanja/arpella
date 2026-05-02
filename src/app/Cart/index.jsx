@@ -22,6 +22,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { removeItemFromCart, clearCart } from '../../redux/slices/cartSlice';
 import axios from 'axios';
 import { baseUrl } from '../../constants';
+import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded';
 
 const stripePromise = loadStripe();
 
@@ -265,97 +266,155 @@ export default function Cart() {
     <>
       <Nav />
 
-      <div className="container mt-4 pb-5">
-        <div className="d-flex justify-content-between mb-3">
-          <h3>Shopping Cart</h3>
-          <button
-            className="btn btn-danger btn-sm"
-            onClick={() => {
-              dispatch(clearCart());
-              infoToast('Cart cleared.');
-            }}
-          >
-            Clear Cart
-          </button>
+      <div className="container mt-5 pb-5">
+        <div className="d-flex align-items-center justify-content-between mb-5">
+          <div>
+            <h2 className="fw-bold mb-1" style={{ color: '#111827', letterSpacing: '-0.025em' }}>Shopping Cart</h2>
+            <p className="text-muted mb-0">{fusedItems.length} {fusedItems.length === 1 ? 'item' : 'items'} in your cart</p>
+          </div>
+          {fusedItems.length > 0 && (
+            <button
+              className="btn btn-link text-danger text-decoration-none fw-semibold p-0"
+              onClick={() => {
+                dispatch(clearCart());
+                infoToast('Cart cleared.');
+              }}
+            >
+              Clear Cart
+            </button>
+          )}
         </div>
 
         {fusedItems.length === 0 ? (
-          <p>Your cart is empty.</p>
+          <div className="text-center py-5 border rounded-4 bg-white shadow-sm">
+            <div className="mb-4">
+              <ShoppingCartRoundedIcon sx={{ fontSize: 64, color: '#e5e7eb' }} />
+            </div>
+            <h4 className="fw-bold text-gray-900">Your cart is empty</h4>
+            <p className="text-muted mb-4">Looks like you haven't added anything to your cart yet.</p>
+            <Link to="/home">
+              <Button variant="primary" style={{ borderRadius: '50px', padding: '0.75rem 2rem', fontWeight: 600 }}>
+                Start Shopping
+              </Button>
+            </Link>
+          </div>
         ) : (
-          <>
-            {fusedItems.map((item) => {
-              const qty = item.quantity;
-              const base = parseFloat(item.price);
-              const threshold = parseFloat(item.discountQuantity ?? Infinity);
-              const discounted = item.priceAfterDiscount != null
-                ? parseFloat(item.priceAfterDiscount)
-                : null;
-              const unitPrice = discounted !== null && qty >= threshold
-                ? discounted
-                : base;
-              const lineTotal = unitPrice * qty;
-              const vatAmount = lineTotal * (parseFloat(item.taxRate) || 0);
+          <div className="row g-4">
+            {/* Left Column: Cart Items */}
+            <div className="col-lg-8">
+              <div className="d-flex flex-column gap-3">
+                {fusedItems.map((item) => {
+                  const qty = item.quantity;
+                  const base = parseFloat(item.price);
+                  const threshold = parseFloat(item.discountQuantity ?? Infinity);
+                  const discounted = item.priceAfterDiscount != null
+                    ? parseFloat(item.priceAfterDiscount)
+                    : null;
+                  const unitPrice = discounted !== null && qty >= threshold
+                    ? discounted
+                    : base;
+                  const lineTotal = unitPrice * qty;
+                  const vatAmount = lineTotal * (parseFloat(item.taxRate) || 0);
 
-              return (
-                <div
-                  key={item.id}
-                  className="d-flex justify-content-between align-items-center p-3 border mb-3"
-                >
-                  <div>
-                    <h5>{item.name || 'Unnamed Product'}</h5>
-                    <p>Unit Price: KSH {unitPrice.toFixed(2)}</p>
-                    <p>Quantity: {qty}</p>
-                    {item.purchaseCap && (
-                      <p>Purchase Cap: {item.purchaseCap}</p>
-                    )}
-                    <p>
-                      Total (incl. VAT): KSH {(lineTotal + vatAmount).toFixed(2)}
-                    </p>
-                    <button
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => {
-                        dispatch(removeItemFromCart(item.id));
-                        infoToast(`${item.name} removed.`);
-                      }}
+                  return (
+                    <div
+                      key={item.id}
+                      className="d-flex flex-column flex-sm-row align-items-center p-3 bg-white border-0 shadow-sm rounded-4 gap-4"
+                      style={{ transition: 'all 0.2s ease' }}
                     >
-                      Remove
-                    </button>
+                      <div className="flex-shrink-0">
+                        {item.productimages?.[0] || item.imageUrl ? (
+                          <img
+                            src={item.productimages?.[0] || item.imageUrl}
+                            alt={item.name}
+                            style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: '12px' }}
+                          />
+                        ) : (
+                          <div style={{ width: 100, height: 100, backgroundColor: '#f3f4f6', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ShoppingCartRoundedIcon sx={{ color: '#9ca3af' }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-grow-1 text-center text-sm-start">
+                        <h5 className="fw-bold mb-1" style={{ color: '#111827' }}>{item.name || 'Unnamed Product'}</h5>
+                        <p className="text-muted small mb-2">{item.categoryName || 'General'}</p>
+                        <div className="d-flex flex-wrap justify-content-center justify-content-sm-start gap-3 align-items-center">
+                          <span className="fw-bold text-primary" style={{ fontSize: '1.1rem', color: '#c85d00' }}>
+                            KSH {unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                          <span className="badge bg-light text-dark border py-2 px-3 rounded-pill fw-semibold">
+                            Qty: {qty}
+                          </span>
+                        </div>
+                        {item.purchaseCap && (
+                          <p className="text-danger small mt-2 mb-0 fw-medium">
+                            Limit: {item.purchaseCap} units
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-center text-sm-end ms-sm-auto">
+                        <p className="fw-bold mb-2" style={{ fontSize: '1.2rem', color: '#111827' }}>
+                          KSH {(lineTotal + vatAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                        <button
+                          className="btn btn-outline-danger btn-sm rounded-pill px-3"
+                          style={{ fontSize: '0.8rem', fontWeight: 600 }}
+                          onClick={() => {
+                            dispatch(removeItemFromCart(item.id));
+                            infoToast(`${item.name} removed.`);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Column: Order Summary */}
+            <div className="col-lg-4">
+              <div className="bg-white p-4 rounded-4 shadow-sm sticky-top" style={{ top: '100px', zIndex: 10 }}>
+                <h4 className="fw-bold mb-4" style={{ color: '#111827' }}>Order Summary</h4>
+                
+                <div className="d-flex flex-column gap-3 mb-4">
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted">Subtotal</span>
+                    <span className="fw-medium">KSH {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
-                  {item.productimages?.[0] && (
-                    <img
-                      src={item.productimages[0]}
-                      alt={item.name}
-                      style={{ width: 80, height: 80, objectFit: 'cover' }}
-                    />
-                  )}
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted">VAT Total</span>
+                    <span className="fw-medium">KSH {vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <span className="text-muted">Delivery Cost</span>
+                    <span className="fw-medium">KSH {deliveryCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <hr className="my-2" />
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="fw-bold h5 mb-0">Total</span>
+                    <span className="fw-bold h4 mb-0" style={{ color: '#c85d00' }}>KSH {finalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
-              );
-            })}
 
-            <div className="mt-4">
-              <h5>Subtotal: KSH {subtotal.toFixed(2)}</h5>
-              <h5>VAT Total: KSH {vatTotal.toFixed(2)}</h5>
-              <h5>Delivery Cost: KSH {deliveryCost.toFixed(2)}</h5>
-              <h4>Final Cost: KSH {finalCost.toFixed(2)}</h4>
-
-              <div className="mt-3">
-                <Link to="/home">
-                  <button
-                    className="btn btn-secondary me-2"
-                    onClick={() => infoToast('Back to shopping')}
-                  >
-                    Back to Shopping
-                  </button>
-                </Link>
-                <button
-                  className="btn btn-primary"
+                <Button
+                  variant="primary"
+                  className="w-100 py-3 rounded-pill fw-bold shadow-sm"
+                  style={{ fontSize: '1.1rem', backgroundColor: '#c85d00', border: 'none' }}
                   onClick={initiateCheckout}
                 >
                   Proceed to Checkout
-                </button>
+                </Button>
+                
+                <div className="mt-4 text-center">
+                  <Link to="/home" className="text-muted text-decoration-none small fw-medium">
+                    ← Continue Shopping
+                  </Link>
+                </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -365,107 +424,138 @@ export default function Cart() {
         onHide={() => setShowCheckout(false)}
         centered
         size="lg"
+        contentClassName="border-0 shadow-lg"
+        style={{ borderRadius: '24px' }}
       >
-        <Modal.Header closeButton>
-          <Modal.Title>Checkout Summary</Modal.Title>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title sx={{ fontWeight: 800, color: '#111827' }}>Checkout Summary</Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <div className="mb-4">
-            <h5>Enter Your Details</h5>
-            <div className="mb-3">
-              <label className="form-label">
-                Phone Number <span className="text-danger">*</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Enter your phone number"
-                value={phoneInput}
-                onChange={(e) => setPhoneInput(e.target.value)}
-              />
-            </div>
-            <div className="mb-4">
-              <label className="form-label">KRA Tax Pin (Optional)</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Enter your KRA Tax Pin"
-                value={kraPinInput}
-                onChange={(e) => setKraPinInput(e.target.value)}
-              />
+        <Modal.Body className="p-4">
+          <div className="mb-5">
+            <h5 className="fw-bold mb-3" style={{ color: '#111827' }}>Delivery Details</h5>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label small fw-bold text-muted text-uppercase">Phone Number *</label>
+                <input
+                  type="text"
+                  className="form-control form-control-lg bg-light border-0"
+                  style={{ borderRadius: '12px' }}
+                  placeholder="254XXXXXXXX"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label small fw-bold text-muted text-uppercase">KRA Tax Pin (Optional)</label>
+                <input
+                  type="text"
+                  className="form-control form-control-lg bg-light border-0"
+                  style={{ borderRadius: '12px' }}
+                  placeholder="Enter KRA PIN"
+                  value={kraPinInput}
+                  onChange={(e) => setKraPinInput(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Unit Price</th>
-                <th>Subtotal</th>
-                <th>VAT</th>
-                <th>Total (incl. VAT)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fusedItems.map((item, idx) => {
-                const qty = item.quantity;
-                const base = parseFloat(item.price);
-                const threshold = parseFloat(item.discountQuantity ?? Infinity);
-                const discounted = item.priceAfterDiscount != null
-                  ? parseFloat(item.priceAfterDiscount)
-                  : null;
-                const unit = discounted !== null && qty >= threshold
-                  ? discounted
-                  : base;
-                const sub = unit * qty;
-                const vat = sub * (parseFloat(item.taxRate) || 0);
-                return (
-                  <tr key={idx}>
-                    <td>{item.name}</td>
-                    <td>{qty}</td>
-                    <td>KSH {unit.toFixed(2)}</td>
-                    <td>KSH {sub.toFixed(2)}</td>
-                    <td>KSH {vat.toFixed(2)}</td>
-                    <td>KSH {(sub + vat).toFixed(2)}</td>
+          <div className="mb-5">
+            <h5 className="fw-bold mb-3" style={{ color: '#111827' }}>Order Items</h5>
+            <div className="table-responsive">
+              <table className="table table-borderless align-middle">
+                <thead>
+                  <tr className="border-bottom">
+                    <th className="text-muted small fw-bold text-uppercase pb-3">Item</th>
+                    <th className="text-muted small fw-bold text-uppercase pb-3 text-center">Qty</th>
+                    <th className="text-muted small fw-bold text-uppercase pb-3 text-end">Price</th>
+                    <th className="text-muted small fw-bold text-uppercase pb-3 text-end">Total</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          <div className="mt-3">
-            <h5>Summary</h5>
-            <p>Subtotal: KSH {subtotal.toFixed(2)}</p>
-            <p>VAT Total: KSH {vatTotal.toFixed(2)}</p>
-            <p>Delivery Cost: KSH {deliveryCost.toFixed(2)}</p>
-            <p>
-              <strong>Final Cost: KSH {finalCost.toFixed(2)}</strong>
-            </p>
+                </thead>
+                <tbody>
+                  {fusedItems.map((item, idx) => {
+                    const qty = item.quantity;
+                    const base = parseFloat(item.price);
+                    const threshold = parseFloat(item.discountQuantity ?? Infinity);
+                    const discounted = item.priceAfterDiscount != null
+                      ? parseFloat(item.priceAfterDiscount)
+                      : null;
+                    const unit = discounted !== null && qty >= threshold
+                      ? discounted
+                      : base;
+                    const sub = unit * qty;
+                    const vat = sub * (parseFloat(item.taxRate) || 0);
+                    return (
+                      <tr key={idx} className="border-bottom">
+                        <td className="py-3">
+                          <span className="fw-semibold" style={{ color: '#111827' }}>{item.name}</span>
+                        </td>
+                        <td className="py-3 text-center">{qty}</td>
+                        <td className="py-3 text-end">KSH {unit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        <td className="py-3 text-end fw-bold">KSH {(sub + vat).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="mt-4 d-flex flex-column">
-            <Button
-              variant="success"
-              className="mb-2"
-              onClick={() => handleNonCard('mpesa')}
-            >
-              Pay via Mpesa
-            </Button>
-            <Button
-              variant="danger"
-              className="mb-2"
-              onClick={() => handleNonCard('airtel')}
-            >
-              Pay via Airtel Money
-            </Button>
-            <Button
-              variant="primary"
-              className="mb-2"
-              onClick={() => setSelectedMethod('visa')}
-            >
-              Pay via Visa/Mastercard
-            </Button>
+          <div className="bg-light p-4 rounded-4 mb-5">
+            <div className="d-flex flex-column gap-2">
+              <div className="d-flex justify-content-between text-muted">
+                <span>Subtotal</span>
+                <span>KSH {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="d-flex justify-content-between text-muted">
+                <span>VAT Total</span>
+                <span>KSH {vatTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="d-flex justify-content-between text-muted">
+                <span>Delivery Fee</span>
+                <span>KSH {deliveryCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <hr className="my-2" />
+              <div className="d-flex justify-content-between align-items-center">
+                <span className="fw-bold h5 mb-0">Grand Total</span>
+                <span className="fw-bold h4 mb-0" style={{ color: '#c85d00' }}>KSH {finalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="d-flex flex-column gap-3">
+            <h5 className="fw-bold mb-1" style={{ color: '#111827' }}>Select Payment Method</h5>
+            <div className="row g-3">
+              <div className="col-md-4">
+                <Button
+                  variant="outline-success"
+                  className="w-100 py-3 rounded-4 fw-bold border-2 d-flex flex-column align-items-center gap-2"
+                  onClick={() => handleNonCard('mpesa')}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>💸</span>
+                  Mpesa
+                </Button>
+              </div>
+              <div className="col-md-4">
+                <Button
+                  variant="outline-danger"
+                  className="w-100 py-3 rounded-4 fw-bold border-2 d-flex flex-column align-items-center gap-2"
+                  onClick={() => handleNonCard('airtel')}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📱</span>
+                  Airtel
+                </Button>
+              </div>
+              <div className="col-md-4">
+                <Button
+                  variant="outline-primary"
+                  className="w-100 py-3 rounded-4 fw-bold border-2 d-flex flex-column align-items-center gap-2"
+                  onClick={() => setSelectedMethod('visa')}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>💳</span>
+                  Card
+                </Button>
+              </div>
+            </div>
           </div>
         </Modal.Body>
       </Modal>

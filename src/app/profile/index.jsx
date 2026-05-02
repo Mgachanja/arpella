@@ -10,7 +10,26 @@ import {
   Button,
   Form,
   Spinner,
+  Table,
 } from "react-bootstrap";
+import {
+  Box,
+  Typography,
+  Avatar,
+  Paper,
+  Divider,
+  IconButton as MuiIconButton,
+  Chip,
+  Button as MuiButton
+} from "@mui/material";
+import {
+  Edit as EditIcon,
+  ShoppingBag as OrderIcon,
+  Person as PersonIcon,
+  Logout as LogoutIcon,
+  AdminPanelSettings as AdminIcon,
+  ChevronRight as ChevronRightIcon
+} from "@mui/icons-material";
 import {
   FaPencilAlt,
   FaHourglass,
@@ -116,12 +135,31 @@ function Profile() {
     }
   };
 
-  const renderIcon = (status) => {
+  const renderStatusChip = (status) => {
     const st = (status || "").toLowerCase();
-    if (st === "pending") return <FaHourglass color="blue" />;
-    if (st === "in transit") return <FaTruck color="black" />;
-    if (st === "fulfilled") return <FaCheckCircle color="green" />;
-    return null;
+    let color = "default";
+    let icon = null;
+
+    if (st === "pending") {
+      color = "info";
+      icon = <FaHourglass size={12} />;
+    } else if (st === "in transit") {
+      color = "warning";
+      icon = <FaTruck size={12} />;
+    } else if (st === "fulfilled") {
+      color = "success";
+      icon = <FaCheckCircle size={12} />;
+    }
+
+    return (
+      <Chip
+        icon={icon}
+        label={st.toUpperCase()}
+        size="small"
+        color={color}
+        sx={{ fontWeight: 700, fontSize: '0.65rem' }}
+      />
+    );
   };
 
   // Utility: normalize items (support server's orderitem / orderItems)
@@ -152,131 +190,227 @@ function Profile() {
     return products.find((p) => p.id === productId || p.productId === productId);
   };
 
+  const getInitials = (firstName, lastName) => {
+    return `${(firstName || "").charAt(0)}${(lastName || "").charAt(0)}`.toUpperCase();
+  };
+
   return (
-    <div
-      style={{
+    <Box
+      sx={{
         display: "flex",
         flexDirection: "column",
         minHeight: "100vh",
+        backgroundColor: "#f9fafb"
       }}
     >
       <Nav />
       <Container className="py-5 flex-grow-1">
-        <Card
-          style={{
-            maxWidth: 800,
-            margin: "0 auto",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            borderRadius: 8,
-          }}
-        >
-          <Card.Body style={{ padding: "2rem" }}>
-            <h4 className="text-center mb-4">Personal Details</h4>
+        <Row className="g-4">
+          {/* Left Column: Personal Info */}
+          <Col lg={4}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 4,
+                borderRadius: '24px',
+                border: '1px solid #e5e7eb',
+                textAlign: 'center',
+                position: 'sticky',
+                top: '100px'
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 100,
+                  height: 100,
+                  margin: '0 auto 20px',
+                  bgcolor: '#c85d00',
+                  fontSize: '2rem',
+                  fontWeight: 700,
+                  boxShadow: '0 10px 15px -3px rgba(200, 93, 0, 0.3)'
+                }}
+              >
+                {getInitials(user?.firstName, user?.lastName)}
+              </Avatar>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
+                {user?.firstName} {user?.lastName}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mb: 3 }}>
+                {user?.phone || user?.phoneNumber}
+              </Typography>
 
-            {isAuthenticated ? (
-              <>
-                {["firstName", "lastName", "email", "passwordHash"].map((field) => (
-                  <Row key={field} className="mb-3 align-items-center">
-                    <Col xs={5}>
-                      <strong>
-                        {field === "passwordHash" ? "Password" : field.charAt(0).toUpperCase() + field.slice(1)}:
-                      </strong>
-                    </Col>
-                    <Col xs={5}>{field === "passwordHash" ? "••••••••••" : user[field] || "N/A"}</Col>
-                    <Col xs={2} className="text-end" style={{ cursor: "pointer" }}>
-                      <FaPencilAlt onClick={() => handleEditClick(field, user[field])} />
-                    </Col>
-                  </Row>
-                ))}
+              <Divider sx={{ mb: 3 }} />
 
-                <Row className="mb-3">
-                  <Col xs={5}>
-                    <strong>Phone:</strong>
-                  </Col>
-                  <Col xs={7}>{user.phone || "N/A"}</Col>
-                </Row>
+              <Box sx={{ textAlign: 'left', mb: 4 }}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" sx={{ color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>Email</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>{user?.email || "N/A"}</Typography>
+                    <MuiIconButton size="small" onClick={() => handleEditClick("email", user?.email)} sx={{ color: '#c85d00' }}>
+                      <EditIcon fontSize="small" />
+                    </MuiIconButton>
+                  </Box>
+                </Box>
 
-                {/* === LOGOUT BUTTON === */}
-                <Row className="mb-4">
-                  <Col className="text-center">
-                    <Button variant="outline-danger" onClick={handleLogout}>
-                      Logout
-                    </Button>
-                  </Col>
-                </Row>
-              </>
-            ) : (
-              <p className="text-center">Please log in.</p>
-            )}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" sx={{ color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase' }}>Password</Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••••</Typography>
+                    <MuiIconButton size="small" onClick={() => handleEditClick("passwordHash", "")} sx={{ color: '#c85d00' }}>
+                      <EditIcon fontSize="small" />
+                    </MuiIconButton>
+                  </Box>
+                </Box>
+              </Box>
 
-            {error && <p className="text-danger text-center">{error}</p>}
-
-            <h5 className="text-center mt-5 mb-4">Order History</h5>
-
-            {isApiLoading ? (
-              <div className="text-center my-3">
-                <Spinner animation="border" />
-              </div>
-            ) : orders.length === 0 ? (
-              <p className="text-center">No orders found.</p>
-            ) : (
-              orders.map((o) => (
-                <Row
-                  key={o.orderid}
-                  className="mb-3 border-bottom pb-3 align-items-center"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => setSelectedOrder(o)}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {(user?.roles?.[0] || user?.role) !== "Customer" && (
+                  <MuiButton
+                    fullWidth
+                    variant="contained"
+                    startIcon={<AdminIcon />}
+                    onClick={() => navigate("/control")}
+                    sx={{
+                      bgcolor: '#1f2937',
+                      borderRadius: '12px',
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      '&:hover': { bgcolor: '#111827' }
+                    }}
+                  >
+                    Admin Panel
+                  </MuiButton>
+                )}
+                <MuiButton
+                  fullWidth
+                  variant="outlined"
+                  color="error"
+                  startIcon={<LogoutIcon />}
+                  onClick={handleLogout}
+                  sx={{
+                    borderRadius: '12px',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    borderWidth: '1.5px',
+                    '&:hover': { borderWidth: '1.5px' }
+                  }}
                 >
-                  <Col xs={3}>
-                    <strong>ORDER {String(o.orderid).toUpperCase()}</strong>
-                    <div style={{ textTransform: "capitalize" }}>{o.status || "—"}</div>
-                  </Col>
-                  <Col xs={6} className="d-flex justify-content-center">
-                    <Button variant="link" className="text-primary" onClick={() => setSelectedOrder(o)}>
-                      View Details
-                    </Button>
-                  </Col>
-                  <Col xs={3} className="text-end">
-                    {renderIcon(o.status)}
-                  </Col>
-                </Row>
-              ))
-            )}
+                  Logout
+                </MuiButton>
+              </Box>
+            </Paper>
+          </Col>
 
-            {/* Admin Panel */}
-            {(user?.roles?.[0] || user?.role) !== "Customer" && (
-              <div className="text-center mt-4">
-                <Button onClick={() => navigate("/control")} variant="primary">
-                  Admin Panel
-                </Button>
-              </div>
-            )}
-          </Card.Body>
-        </Card>
+          {/* Right Column: Order History */}
+          <Col lg={8}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 3, md: 4 },
+                borderRadius: '24px',
+                border: '1px solid #e5e7eb',
+                minHeight: '600px'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                <Box sx={{ p: 1.5, bgcolor: 'rgba(200, 93, 0, 0.1)', borderRadius: '12px' }}>
+                  <OrderIcon sx={{ color: '#c85d00' }} />
+                </Box>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>Order History</Typography>
+              </Box>
+
+              {isApiLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+                  <Spinner animation="border" variant="warning" />
+                </Box>
+              ) : orders.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 10 }}>
+                  <Typography variant="h6" sx={{ color: '#9ca3af', mb: 1 }}>No orders yet</Typography>
+                  <Typography variant="body2" sx={{ color: '#9ca3af' }}>When you place orders, they will appear here.</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {orders.map((o) => (
+                    <Paper
+                      key={o.orderid}
+                      elevation={0}
+                      onClick={() => setSelectedOrder(o)}
+                      sx={{
+                        p: 3,
+                        borderRadius: '16px',
+                        border: '1px solid #f3f4f6',
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          borderColor: '#c85d00',
+                          backgroundColor: '#fffcf9',
+                          transform: 'translateX(4px)'
+                        }
+                      }}
+                    >
+                      <Row className="align-items-center">
+                        <Col xs={12} sm={4} className="mb-2 mb-sm-0">
+                          <Typography variant="caption" sx={{ color: '#9ca3af', fontWeight: 700, display: 'block' }}>
+                            ORDER #{String(o.orderid).toUpperCase()}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 500, color: '#6b7280' }}>
+                            {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—'}
+                          </Typography>
+                        </Col>
+                        <Col xs={6} sm={4}>
+                          <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                            KSH {computeOrderTotal(o).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </Typography>
+                        </Col>
+                        <Col xs={6} sm={4} className="text-end d-flex align-items-center justify-content-end gap-2">
+                          {renderStatusChip(o.status)}
+                          <ChevronRightIcon sx={{ color: '#d1d5db' }} />
+                        </Col>
+                      </Row>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
+            </Paper>
+          </Col>
+        </Row>
       </Container>
 
       {/* Footer */}
-      <footer
-        style={{
-          background: "#f8f9fa",
-          padding: "1rem 0",
-          marginTop: "auto",
+      <Box
+        component="footer"
+        sx={{
+          bgcolor: '#fff',
+          py: 6,
+          mt: 'auto',
+          borderTop: '1px solid #e5e7eb'
         }}
       >
-        <Container className="text-center">
-          <div>Contact: 0704288802</div>
-          <div>
-            <Link to="/terms-and-conditions" className="mx-2">
-              Terms & Conditions
-            </Link>
-            |
-            <Link to="/privacy-policy" className="mx-2">
-              Privacy Policy
-            </Link>
-          </div>
-          <div className="mt-2">© {new Date().getFullYear()} All rights reserved.</div>
+        <Container>
+          <Row className="gy-4">
+            <Col md={6} className="text-center text-md-start">
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#c85d00', mb: 1 }}>Arpella Stores</Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                Your trusted wholesale and retail shop in Ngong Matasia.
+              </Typography>
+            </Col>
+            <Col md={6} className="text-center text-md-end">
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>Customer Support</Typography>
+                <Typography variant="body1" sx={{ color: '#c85d00', fontWeight: 800 }}>0704288802</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 3 }}>
+                <Link to="/terms-and-conditions" style={{ textDecoration: 'none', color: '#6b7280', fontSize: '0.875rem' }}>Terms</Link>
+                <Link to="/privacy-policy" style={{ textDecoration: 'none', color: '#6b7280', fontSize: '0.875rem' }}>Privacy</Link>
+              </Box>
+            </Col>
+          </Row>
+          <Divider sx={{ my: 4 }} />
+          <Typography variant="body2" sx={{ textAlign: 'center', color: '#9ca3af' }}>
+            © {new Date().getFullYear()} Arpella Stores. All rights reserved.
+          </Typography>
         </Container>
-      </footer>
+      </Box>
 
       {/* Edit Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
@@ -386,7 +520,7 @@ function Profile() {
           <p className="mt-3">Processing…</p>
         </Modal.Body>
       </Modal>
-    </div>
+    </Box>
   );
 }
 
