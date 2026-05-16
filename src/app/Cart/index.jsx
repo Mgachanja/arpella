@@ -117,7 +117,7 @@ export default function Cart() {
   const deliveryCost = 10;
   const fusedItems = Object.values(cartItems).map((item) => {
     const product = products.find((p) => p.id === item.id) || {};
-    return { ...product, quantity: item.quantity, id: item.id };
+    return { ...item, ...product, quantity: item.quantity, id: item.id };
   });
 
   // Calculate subtotal and VAT

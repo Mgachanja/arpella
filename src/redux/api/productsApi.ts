@@ -180,6 +180,12 @@ export const productsApi = api.injectEndpoints({
       transformResponse: toArray,
       invalidatesTags: ["Products"],
     }),
+    getOfferProducts: builder.query<any[], void>({
+      query: () => "/offer-products",
+      providesTags: ["Products"],
+      transformResponse: (response: any) =>
+        Array.isArray(response) ? response : [],
+    }),
   }),
   overrideExisting: false,
 });
@@ -212,4 +218,5 @@ export const {
   useLazyGetPagedProductsQuery,
   useLazyGetProductQuery,
   useLazyGetInvoicesQuery,
+  useGetOfferProductsQuery,
 } = productsApi;

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchProductsAndRelated, setProducts, fetchProductsApi } from '../../redux/slices/productsSlice';
 import NavBar from '../../components/Nav';
 import ProductContainer from '../../components/ProductContainer';
+import OffersSection from '../../components/OffersSection';
 import successToast from '../UserNotifications/successToast';
 import { addItemToCart } from '../../redux/slices/cartSlice';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,7 +15,6 @@ import {
   Paper,
   Typography,
   TextField,
-  Container as MuiContainer,
   Button as MuiButton,
   Alert,
   IconButton
@@ -26,13 +26,15 @@ import Button from 'react-bootstrap/Button';
 import { Row, Col, Offcanvas, Accordion, ListGroup } from 'react-bootstrap';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-const CenteredContainer = styled(MuiContainer)(({ theme }) => ({
+const CenteredContainer = styled(Box)(({ theme }) => ({
   maxWidth: '1400px',
+  width: '100%',
   margin: '0 auto',
   paddingLeft: '24px',
   paddingRight: '24px',
   paddingTop: '24px',
   paddingBottom: '48px',
+  boxSizing: 'border-box',
   [theme.breakpoints.down('sm')]: {
     paddingLeft: '16px',
     paddingRight: '16px'
@@ -124,7 +126,7 @@ const ProductsGrid = styled(Box)(({ theme }) => ({
   width: '100%',
   gap: '24px',
   marginTop: '32px',
-  justifyContent: 'center',
+  justifyContent: 'flex-start',
   gridTemplateColumns: 'repeat(auto-fill, 180px)',
   
   [theme.breakpoints.down('sm')]: {
@@ -250,12 +252,15 @@ export default function ProductIndex() {
   // Add product to cart from modal
   const onAdd = () => {
     const id = modalProd.id || uuidv4();
+    const orig = Number(modalProd.price) || 0;
+    const offer = Number(modalProd.priceAfterDiscount) || 0;
+    const cartPrice = offer > 0 ? offer : orig;
     dispatch(addItemToCart({ 
       product: { 
         id, 
         quantity: modalProd.quantity,
         name: modalProd.name,
-        price: modalProd.price,
+        price: cartPrice,
         imageUrl: modalProd.imageUrl
       } 
     }));
@@ -389,51 +394,68 @@ export default function ProductIndex() {
           </Box>
         )}
 
-        <ProductsGrid>
-          {filtered.length === 0 ? (
-            <Typography 
-              align="center" 
-              sx={{ 
-                gridColumn: '1/-1', 
-                py: 4,
-                fontSize: '1.1rem',
-                color: 'text.secondary'
-              }}
-            >
-              {isLoadingOverall ? 'Loading products...' : 'No products found.'}
+        <Box sx={{ maxWidth: '1200px', width: '100%', mx: 'auto' }}>
+          <OffersSection onSelect={(product) => {
+            const ic = cart[product.id];
+            setModalProd({ ...product, quantity: ic ? ic.quantity : 1 });
+            setShowModal(true);
+          }} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, my: 3 }}>
+            <Box sx={{ flex: 1, height: '1px', bgcolor: '#e5e7eb' }} />
+            <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+              All Products
             </Typography>
-          ) : (
-            <Suspense fallback={<CircularProgress sx={{ gridColumn: '1/-1', justifySelf: 'center' }} />}>
-              {filtered.map(p => (
-                <Box
-                  key={p.id}
-                  onClick={() => {
-                    const ic = cart[p.id];
-                    setModalProd({ ...p, quantity: ic ? ic.quantity : 1 });
-                    setShowModal(true);
-                  }}
-                  sx={{ 
-                    cursor: 'pointer',
-                    width: '180px',
-                    height: 'auto'
-                  }}
-                >
-                  <ProductContainer product={p} />
-                </Box>
-              ))}
-            </Suspense>
-          )}
-        </ProductsGrid>
-
-        {/* Sentinel for infinite scroll */}
-        <div ref={sentinelRef} style={{ height: 1 }} />
-
-        {/* Minor fetch status indicator */}
-        {isFetchingNextPage && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-            <CircularProgress size={24} />
+            <Box sx={{ flex: 1, height: '1px', bgcolor: '#e5e7eb' }} />
           </Box>
-        )}
+
+          <ProductsGrid>
+            {filtered.length === 0 ? (
+              <Typography 
+                align="center" 
+                sx={{ 
+                  gridColumn: '1/-1', 
+                  py: 4,
+                  fontSize: '1.1rem',
+                  color: 'text.secondary'
+                }}
+              >
+                {isLoadingOverall ? 'Loading products...' : 'No products found.'}
+              </Typography>
+            ) : (
+              <Suspense fallback={<CircularProgress sx={{ gridColumn: '1/-1', justifySelf: 'center' }} />}>
+                {filtered.map(p => (
+                  <Box
+                    key={p.id}
+                    onClick={() => {
+                      const ic = cart[p.id];
+                      setModalProd({ ...p, quantity: ic ? ic.quantity : 1 });
+                      setShowModal(true);
+                    }}
+                    sx={{ 
+                      cursor: 'pointer',
+                      width: '180px',
+                      height: 'auto'
+                    }}
+                  >
+                    <ProductContainer product={p} />
+                  </Box>
+                ))}
+              </Suspense>
+            )}
+          </ProductsGrid>
+
+          {/* Sentinel for infinite scroll */}
+          <div ref={sentinelRef} style={{ height: 1 }} />
+
+          {/* Minor fetch status indicator */}
+          {isFetchingNextPage && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+        </Box>
+
       </CenteredContainer>
 
       <Box 
@@ -502,9 +524,43 @@ export default function ProductIndex() {
                     <Typography variant="caption" sx={{ color: '#6b7280', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
                       Price
                     </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: '#c85d00' }}>
-                      KSH {modalProd.price ? modalProd.price.toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'N/A'}
-                    </Typography>
+                    {(() => {
+                      const orig = Number(modalProd.price) || 0;
+                      const offer = Number(modalProd.priceAfterDiscount) || 0;
+                      const hasOffer = offer > 0;
+                      const pct = hasOffer && orig > 0
+                        ? Math.round(((orig - offer) / orig) * 100)
+                        : 0;
+                      return (
+                        <>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Typography variant="h4" sx={{ fontWeight: 800, color: '#c85d00' }}>
+                              KSH {(hasOffer ? offer : orig).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </Typography>
+                            {hasOffer && (
+                              <Box
+                                sx={{
+                                  bgcolor: '#c85d00',
+                                  color: '#fff',
+                                  fontWeight: 700,
+                                  fontSize: '0.75rem',
+                                  px: 1,
+                                  py: 0.25,
+                                  borderRadius: '50px',
+                                }}
+                              >
+                                {pct}% OFF
+                              </Box>
+                            )}
+                          </Box>
+                          {hasOffer && (
+                            <Typography sx={{ color: '#9ca3af', textDecoration: 'line-through', fontSize: '0.95rem', mt: 0.25 }}>
+                              KSH {orig.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </Typography>
+                          )}
+                        </>
+                      );
+                    })()}
                   </Box>
 
                   <Box sx={{ mb: 4 }}>
