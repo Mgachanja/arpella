@@ -18,7 +18,12 @@ import ProtectedRoute from "./app/ProtectedRoute"
 import Terms from "./app/Terms"
 import Privacy from "./app/Privacy"
 import DeliveryTermsPage from "./app/deliveryTerms";
-import Download from "./app/download"
+import Download from "./app/download";
+import LandingPage from "./app/LandingPage";
+import CategoriesPage from "./app/CategoriesPage";
+import AboutPage from "./app/AboutPage";
+import ContactPage from "./app/ContactPage";
+import CheckoutPage from "./app/CheckoutPage";
 function App() {
   return (
     <Provider store={store}>
@@ -28,15 +33,22 @@ function App() {
             <div>
               <ToastContainer  autoClose={3000} />
               <Routes>
-                <Route path="/download" element={<Download/>}/>
-                <Route path="/" element={<Registration />} />
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/shop" element={<Home />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Registration />} />
+                <Route path="/dashboard" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/download" element={<Download />} />
                 <Route path="/terms-and-conditions" element={<Terms />} />
                 <Route path="/privacy-policy" element={<Privacy />} />
-                <Route path="/delivery-terms" element={<DeliveryTermsPage/>}/>
+                <Route path="/delivery-terms" element={<DeliveryTermsPage />} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-                <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
                 <Route path="/control" element={<ProtectedRoute><ControlPanel /></ProtectedRoute>} />
                 <Route path="/package" element={<ProtectedRoute><Package /></ProtectedRoute>} />
               </Routes>

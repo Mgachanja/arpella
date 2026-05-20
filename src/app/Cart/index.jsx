@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Nav from '../../components/Nav';
 import successToast from '../UserNotifications/successToast';
 import errorToast from '../UserNotifications/errorToast';
@@ -107,6 +107,8 @@ export default function Cart() {
   const cartItems = useSelector((s) => s.cart.items);
   const products = useSelector((s) => s.products.products);
   const user = useSelector((s) => s.auth.user);
+  const isAuthenticated = useSelector((s) => s.auth.isAuthenticated);
+  const navigate = useNavigate();
 
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('');
@@ -255,6 +257,11 @@ export default function Cart() {
    * Validates purchase caps then displays the summary modal.
    */
   const initiateCheckout = () => {
+    if (!isAuthenticated) {
+      infoToast('Please login to continue with checkout.');
+      navigate('/login');
+      return;
+    }
     if (capExceeded) {
       errorToast('One or more items exceed their purchase limit.');
       return;

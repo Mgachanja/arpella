@@ -215,10 +215,10 @@ function Registration() {
                 </div>
 
                 <div className="d-flex gap-3 mb-4">
-                  <Button variant="outline-danger" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2">
+                  <Button variant="outline-danger" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2" onClick={() => toast.info('OAuth is currently under construction.')}>
                     <FontAwesomeIcon icon={faGoogle} /> Google
                   </Button>
-                  <Button variant="outline-primary" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2">
+                  <Button variant="outline-primary" className="w-50 rounded-pill py-2 fw-semibold border-2 d-flex align-items-center justify-content-center gap-2" onClick={() => toast.info('OAuth is currently under construction.')}>
                     <FontAwesomeIcon icon={faFacebook} /> Facebook
                   </Button>
                 </div>
