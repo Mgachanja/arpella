@@ -299,7 +299,7 @@ export default function Cart() {
             </div>
             <h4 className="fw-bold text-gray-900">Your cart is empty</h4>
             <p className="text-muted mb-4">Looks like you haven't added anything to your cart yet.</p>
-            <Link to="/home">
+            <Link to="/shop">
               <Button variant="primary" style={{ borderRadius: '50px', padding: '0.75rem 2rem', fontWeight: 600 }}>
                 Start Shopping
               </Button>
@@ -415,7 +415,7 @@ export default function Cart() {
                 </Button>
                 
                 <div className="mt-4 text-center">
-                  <Link to="/home" className="text-muted text-decoration-none small fw-medium">
+                  <Link to="/shop" className="text-muted text-decoration-none small fw-medium">
                     ← Continue Shopping
                   </Link>
                 </div>

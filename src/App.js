@@ -42,13 +42,12 @@ function App() {
                 <Route path="/register" element={<Registration />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                 <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
                 <Route path="/download" element={<Download />} />
                 <Route path="/terms-and-conditions" element={<Terms />} />
                 <Route path="/privacy-policy" element={<Privacy />} />
                 <Route path="/delivery-terms" element={<DeliveryTermsPage />} />
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-                <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/control" element={<ProtectedRoute><ControlPanel /></ProtectedRoute>} />
                 <Route path="/package" element={<ProtectedRoute><Package /></ProtectedRoute>} />
               </Routes>
